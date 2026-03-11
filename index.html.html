@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFL Forensic Ops — Digitaal Forensisch Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#05080c; --bg2:#090d13; --bg3:#0e1420;
+  --border:rgba(255,255,255,.07); --border2:rgba(255,255,255,.04);
+  --text:#e8edf3; --muted:rgba(255,255,255,.38); --faint:rgba(255,255,255,.14);
+  --amber:#f0a500; --green:#00e887; --blue:#5a8fff;
+  --purple:#b87fff; --red:#ff4455; --cyan:#00d4ff;
+  --topbar-h:54px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:rgba(240,165,0,.25);border-radius:4px}
+
+/* ── Animations ── */
+@keyframes ripple{0%{transform:scale(1);opacity:.5}100%{transform:scale(2.8);opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scanH{0%{top:0}100%{top:100%}}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes glow{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@keyframes bootLine{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(60px)}}
+@keyframes scanV{0%{top:-2px}100%{top:100%}}
+@keyframes notifSlide{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes notifOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(20px)}}
+@keyframes countUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes heatPulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes mapDot{0%{transform:scale(0);opacity:0}60%{transform:scale(1.3);opacity:.9}100%{transform:scale(1);opacity:.7}}
+@keyframes rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes barGrow{from{width:0}to{width:var(--w)}}
+
+/* ══ BOOT ══ */
+#boot-screen{position:fixed;inset:0;z-index:1000;background:#03060a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:12px;color:rgba(0,232,135,.7)}
+#boot-screen.hidden{display:none}
+.boot-line{animation:bootLine .15s ease both;opacity:0}
+.boot-bar-wrap{width:280px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:20px}
+.boot-bar-fill{height:100%;background:var(--green);border-radius:2px;width:0;transition:width .08s linear}
+
+/* ══ LOGIN ══ */
+#login-screen{position:fixed;inset:0;z-index:999;display:flex;align-items:stretch;font-family:'DM Sans',sans-serif}
+#login-screen.hidden{display:none}
+.login-left{width:52%;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:40px 50px;background:linear-gradient(160deg,#070d16 0%,#03060a 60%);border-right:1px solid rgba(240,165,0,.08)}
+.login-grid-bg{position:absolute;inset:-60px;opacity:.04;background-image:linear-gradient(rgba(240,165,0,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(240,165,0,.6) 1px,transparent 1px);background-size:60px 60px;animation:gridMove 6s linear infinite}
+.login-scan{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(240,165,0,.4),transparent);animation:scanV 8s linear infinite;top:0}
+.login-corner{position:absolute;width:20px;height:20px;border-color:rgba(240,165,0,.3);border-style:solid}
+.login-corner.tl{top:20px;left:20px;border-width:2px 0 0 2px}
+.login-corner.tr{top:20px;right:20px;border-width:2px 2px 0 0}
+.login-corner.bl{bottom:20px;left:20px;border-width:0 0 2px 2px}
+.login-corner.br{bottom:20px;right:20px;border-width:0 2px 2px 0}
+.login-brand{position:relative;z-index:2}
+.login-brand-logo{display:flex;align-items:center;gap:14px;margin-bottom:60px}
+.login-bars{display:flex;gap:3px;align-items:flex-end}
+.login-bars span{display:block;width:4px;border-radius:2px;background:var(--amber);animation:glow 2s ease-in-out infinite}
+.login-brand-name{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;letter-spacing:.08em}
+.login-tagline{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;line-height:1.1;color:#fff;margin-bottom:20px;animation:fadeUp .8s ease .1s both}
+.login-tagline span{color:var(--amber)}
+.login-desc{font-size:14px;color:rgba(255,255,255,.4);line-height:1.7;max-width:380px;animation:fadeUp .8s ease .25s both}
+.login-stats{display:flex;gap:14px;position:relative;z-index:2;animation:fadeUp .8s ease .4s both}
+.login-stat{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 18px;flex:1}
+.login-stat .sv{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;line-height:1}
+.login-stat .sl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+.login-right{flex:1;display:flex;align-items:center;justify-content:center;padding:40px;background:#040810}
+.login-form-wrap{width:100%;max-width:380px;animation:fadeUp .6s ease .2s both}
+.login-form-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+.login-form-sub{font-size:12px;color:var(--muted);margin-bottom:32px}
+.login-field{margin-bottom:16px}
+.login-label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px}
+.login-input-wrap{position:relative}
+.login-input{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;padding:12px 14px 12px 42px;font-size:13px;color:#fff;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s,box-shadow .2s}
+.login-input:focus{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.08)}
+.login-input.error{border-color:rgba(255,68,85,.5);animation:shake .4s ease}
+.login-input::placeholder{color:rgba(255,255,255,.2)}
+.login-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:15px;opacity:.35}
+.login-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.35;cursor:pointer;transition:opacity .15s}
+.login-eye:hover{opacity:.7}
+.twofa-wrap{display:flex;gap:8px;justify-content:center}
+.twofa-digit{width:44px;height:52px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--amber);text-align:center;outline:none;transition:border-color .2s,box-shadow .2s;caret-color:var(--amber)}
+.twofa-digit:focus{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.08)}
+.twofa-digit.error{border-color:rgba(255,68,85,.5)}
+.login-error{background:rgba(255,68,85,.08);border:1px solid rgba(255,68,85,.25);border-radius:7px;padding:10px 14px;font-size:12px;color:#ff6070;margin-bottom:16px;display:none;align-items:center;gap:8px}
+.login-error.show{display:flex;animation:shake .4s ease}
+.login-btn{width:100%;background:var(--amber);border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:700;color:#0a0600;cursor:pointer;font-family:'Syne',sans-serif;letter-spacing:.04em;transition:all .2s;margin-top:8px}
+.login-btn:hover{background:#ffb920;box-shadow:0 0 24px rgba(240,165,0,.3)}
+.login-btn.loading{opacity:.7;pointer-events:none}
+.login-hint{margin-top:20px;padding:12px 14px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6}
+.login-hint strong{color:rgba(255,255,255,.5)}
+.login-step{display:none}
+.login-step.active{display:block}
+@media(max-width:700px){.login-left{display:none}}
+
+/* ══ TOPBAR ══ */
+#topbar{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--topbar-h);background:rgba(5,8,12,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:16px}
+.brand{display:flex;align-items:center;gap:13px;flex-shrink:0}
+.brand-bars{display:flex;gap:3px;align-items:flex-end}
+.brand-bars span{display:block;width:3px;border-radius:2px;background:var(--amber);animation:glow 2s ease-in-out infinite}
+.brand-title{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:.06em}
+.brand-sub{font-size:9px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;margin-top:1px}
+#ticker-wrap{flex:1;overflow:hidden;height:20px;margin:0 20px}
+#ticker-inner{display:flex;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.18);animation:ticker 50s linear infinite}
+#ticker-inner span{margin-right:48px}
+.topbar-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
+#clock{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--amber);animation:glow 2s ease-in-out infinite}
+.badge-live{display:flex;align-items:center;gap:6px;background:rgba(0,232,135,.08);border:1px solid rgba(0,232,135,.22);border-radius:20px;padding:4px 13px;font-size:11px;font-weight:600;color:var(--green)}
+.dot-wrap{position:relative;display:inline-flex;width:8px;height:8px;flex-shrink:0}
+.dot-ring{position:absolute;inset:0;border-radius:50%;animation:ripple 2s ease-out infinite}
+.dot-core{position:absolute;inset:1.5px;border-radius:50%}
+
+/* ══ NAV TABS ══ */
+#nav-tabs{background:rgba(0,0,0,.5);border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:2px;padding:0 22px;height:42px}
+.nav-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:0 16px;height:100%;cursor:pointer;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;transition:all .18s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.nav-tab:hover{color:rgba(255,255,255,.7)}
+.nav-tab.active{color:#fff;border-bottom-color:var(--amber)}
+.nav-tab .tab-badge{background:rgba(240,165,0,.15);color:var(--amber);border-radius:10px;padding:1px 6px;font-size:9px;font-weight:700}
+
+/* ══ LAYOUT ══ */
+#layout{display:grid;grid-template-columns:260px 1fr 0px;height:calc(100vh - var(--topbar-h) - 42px);margin-top:calc(var(--topbar-h) + 42px);transition:grid-template-columns .3s ease}
+#layout.phone-open{grid-template-columns:260px 1fr 380px}
+
+/* ══ STATS BAR ══ */
+#stats-bar{background:rgba(0,0,0,.45);border-bottom:1px solid var(--border2);padding:9px 22px;display:flex;gap:8px;overflow-x:auto;grid-column:1/-1}
+.stat-pill{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:6px 14px;flex-shrink:0;cursor:pointer;transition:all .15s}
+.stat-pill:hover{background:rgba(255,255,255,.06)}
+.stat-pill.active{border-color:rgba(240,165,0,.3);background:rgba(240,165,0,.06)}
+.stat-pill .val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;line-height:1}
+.stat-pill .lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;margin-top:2px}
+
+/* ══ SIDEBAR ══ */
+#sidebar{background:rgba(0,0,0,.3);border-right:1px solid var(--border2);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-head{padding:14px 16px 10px;border-bottom:1px solid var(--border2)}
+.sidebar-head h2{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:10px}
+#search{width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:7px 10px 7px 28px;font-size:11px;color:rgba(255,255,255,.65);outline:none;font-family:'DM Sans',sans-serif}
+#search::placeholder{color:rgba(255,255,255,.22)}
+.search-wrap{position:relative}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.3}
+.filter-row{display:flex;gap:4px;padding:8px 12px;overflow-x:auto;border-bottom:1px solid var(--border2)}
+.filter-row::-webkit-scrollbar{display:none}
+.f-btn{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:3px 9px;font-size:10px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all .14s}
+.f-btn.active{background:rgba(240,165,0,.12);border-color:rgba(240,165,0,.35);color:var(--amber)}
+#device-list{flex:1;overflow-y:auto;padding:10px}
+.dev-card{background:rgba(255,255,255,.022);border:1px solid var(--border);border-radius:9px;padding:12px 14px;cursor:pointer;margin-bottom:8px;transition:all .18s;position:relative;overflow:hidden}
+.dev-card:hover{background:rgba(255,255,255,.045);transform:translateX(2px)}
+.dev-card.selected{background:rgba(240,165,0,.07);border-color:rgba(240,165,0,.3)}
+.dev-card .scan-line{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:scanH 2.4s linear infinite;opacity:0;top:0}
+.dev-card.extracting .scan-line{opacity:.45}
+.dev-id{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:2px}
+.dev-model{font-weight:700;font-size:12px;color:#fff}
+.dev-os{font-size:10px;color:var(--muted);margin-top:1px}
+.status-chip{display:flex;align-items:center;gap:5px;border-radius:20px;padding:3px 8px;font-size:9px;font-weight:700;flex-shrink:0}
+.prio-tag{font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 6px;border-radius:4px;display:inline-block}
+.dev-mini-bar-track{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin:8px 0}
+.dev-mini-bar-fill{height:100%;border-radius:2px;transition:width .8s ease}
+.chip{font-size:9px;color:rgba(255,255,255,.45);background:rgba(255,255,255,.05);border-radius:4px;padding:2px 6px;font-family:'JetBrains Mono',monospace}
+.chip.flag{color:var(--amber);background:rgba(240,165,0,.12);border:1px solid rgba(240,165,0,.22);font-weight:700}
+
+/* ══ MAIN ══ */
+#main{overflow-y:auto;display:flex;flex-direction:column}
+#page-devices,#page-zaak,#page-heatmap,#page-verbanden{padding:20px;display:none;flex-direction:column;gap:16px;flex:1}
+#page-devices.active,#page-zaak.active,#page-heatmap.active,#page-verbanden.active{display:flex}
+
+/* Toolbar */
+#toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tb-filters{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.tb-btn{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .14s;white-space:nowrap}
+.tb-btn.active{border-color:rgba(240,165,0,.32);color:var(--amber);background:rgba(240,165,0,.08)}
+.vt-btn{background:transparent;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:5px 9px;cursor:pointer;font-size:16px;color:var(--muted);transition:all .14s}
+.vt-btn.active{border-color:rgba(240,165,0,.3);color:var(--amber);background:rgba(240,165,0,.08)}
+#card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:13px}
+#card-grid.hidden,#list-view.hidden{display:none}
+.grid-card{background:rgba(9,13,19,.95);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;position:relative;overflow:hidden;transition:all .18s;animation:fadeUp .35s ease both}
+.grid-card:hover{background:rgba(255,255,255,.04);transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.grid-card.selected{box-shadow:0 0 0 1px rgba(240,165,0,.3)}
+.grid-card .top-accent{position:absolute;top:0;left:0;right:0;height:2px}
+.grid-card .scan-anim{position:absolute;left:0;right:0;height:1px;animation:scanH 2.5s linear infinite;opacity:0}
+.grid-card.extracting .scan-anim{opacity:.4}
+.gc-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.gc-id{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-bottom:2px}
+.gc-model{font-weight:700;font-size:13px;color:#fff;line-height:1.2}
+.gc-os{font-size:10px;color:var(--muted);margin-top:2px}
+.prog-track{background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.prog-fill{border-radius:3px;transition:width .8s ease}
+.list-header{display:grid;grid-template-columns:110px 190px 110px 110px 1fr 150px 55px;gap:10px;padding:5px 14px;font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border2)}
+.list-row{display:grid;grid-template-columns:110px 190px 110px 110px 1fr 150px 55px;gap:10px;padding:10px 14px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:8px;cursor:pointer;align-items:center;transition:background .14s;animation:fadeUp .3s ease both}
+.list-row:hover{background:rgba(255,255,255,.045)}
+.list-row.selected{border-color:rgba(240,165,0,.35);background:rgba(240,165,0,.04)}
+.empty{text-align:center;padding:60px;color:var(--muted)}
+.empty .e-icon{font-size:48px;margin-bottom:12px}
+
+/* ══ PHONE PANEL ══ */
+#phone-panel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:all .3s ease}
+#phone-panel.closed{width:0;border:none;overflow:hidden}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border2);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.panel-head h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700}
+.panel-close{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:'DM Sans',sans-serif}
+.frame-controls{padding:8px 16px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.frame-controls label{font-size:10px;color:var(--muted);white-space:nowrap}
+#frame-slider{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:rgba(255,255,255,.1);border-radius:2px;outline:none;cursor:pointer}
+#frame-slider::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--amber);cursor:pointer;box-shadow:0 0 6px rgba(240,165,0,.5)}
+.frame-size-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);width:30px;text-align:right}
+.phone-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:16px 8px;gap:14px}
+.phone-frame{background:#12161e;border:2px solid rgba(255,255,255,.15);border-radius:36px;padding:14px 10px;box-shadow:0 0 0 6px #0a0d12,0 0 0 8px rgba(255,255,255,.06),0 20px 60px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.08);position:relative;transition:all .3s ease;flex-shrink:0}
+.phone-notch{width:90px;height:24px;background:#0a0d12;border-radius:0 0 16px 16px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;gap:5px}
+.notch-cam{width:8px;height:8px;border-radius:50%;background:#1a1f28;border:1px solid rgba(255,255,255,.1)}
+.notch-speaker{width:36px;height:4px;border-radius:3px;background:#1a1f28}
+.phone-screen{background:#060a0e;border-radius:20px;overflow:hidden;position:relative;transition:all .3s ease}
+.phone-home-bar{width:80px;height:4px;background:rgba(255,255,255,.2);border-radius:3px;margin:10px auto 0}
+.phone-btn-r{position:absolute;right:-10px;top:80px;width:4px;height:50px;background:rgba(255,255,255,.1);border-radius:2px}
+.phone-btn-l1{position:absolute;left:-10px;top:70px;width:4px;height:30px;background:rgba(255,255,255,.1);border-radius:2px}
+.phone-btn-l2{position:absolute;left:-10px;top:115px;width:4px;height:45px;background:rgba(255,255,255,.1);border-radius:2px}
+.forensic-overlay{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(-45deg,transparent,transparent 30px,rgba(240,165,0,.012) 30px,rgba(240,165,0,.012) 31px);z-index:10}
+.forensic-stamp{position:absolute;bottom:8px;right:8px;z-index:11;font-family:'JetBrains Mono',monospace;font-size:7px;color:rgba(240,165,0,.35);letter-spacing:.08em;text-align:right}
+/* Phone apps */
+.phone-statusbar{display:flex;justify-content:space-between;align-items:center;padding:6px 12px 4px;font-size:9px;color:rgba(255,255,255,.6);font-family:'JetBrains Mono',monospace}
+.phone-app-tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.08);overflow-x:auto}
+.phone-app-tabs::-webkit-scrollbar{display:none}
+.phone-app-tab{flex:1;padding:6px 4px;font-size:9px;text-align:center;color:rgba(255,255,255,.4);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.phone-app-tab.active{color:var(--amber);border-bottom-color:var(--amber)}
+.phone-scrollable{overflow-y:auto}
+.phone-scrollable::-webkit-scrollbar{width:2px}
+.phone-scrollable::-webkit-scrollbar-thumb{background:rgba(240,165,0,.2)}
+.phone-msg{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+.phone-msg.flagged{background:rgba(240,165,0,.04)}
+.phone-msg-from{font-size:9px;color:var(--amber);font-weight:600;margin-bottom:2px}
+.phone-msg-text{font-size:10px;color:rgba(255,255,255,.7);line-height:1.4}
+.phone-msg-time{font-size:8px;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.msg-flag{display:inline-block;background:rgba(255,68,85,.15);border:1px solid rgba(255,68,85,.3);color:#ff6070;font-size:7px;border-radius:3px;padding:0 4px;margin-left:4px}
+/* Phone map dots */
+.map-grid{display:grid;grid-template-columns:repeat(20,1fr);gap:1px;padding:10px;background:rgba(0,0,0,.4)}
+.map-cell{aspect-ratio:1;border-radius:2px;background:rgba(255,255,255,.03);transition:all .3s}
+.map-cell.hot{background:rgba(255,68,85,.6);box-shadow:0 0 4px rgba(255,68,85,.5)}
+.map-cell.warm{background:rgba(240,165,0,.5);box-shadow:0 0 3px rgba(240,165,0,.4)}
+.map-cell.cool{background:rgba(90,143,255,.4)}
+.map-dot{width:100%;height:100%;border-radius:2px;animation:mapDot .5s ease both}
+/* Photo grid */
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;padding:8px}
+.photo-cell{aspect-ratio:1;border-radius:4px;position:relative;overflow:hidden;cursor:pointer}
+.photo-cell-inner{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all .2s}
+.photo-cell.flagged::after{content:'⚑';position:absolute;top:3px;right:3px;font-size:9px;color:var(--amber);background:rgba(0,0,0,.7);border-radius:3px;padding:1px 3px}
+/* Call log */
+.call-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+.call-icon{font-size:14px;width:24px;text-align:center}
+.call-num{font-size:10px;color:rgba(255,255,255,.7);font-family:'JetBrains Mono',monospace}
+.call-dur{font-size:9px;color:var(--muted)}
+.call-time{font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-left:auto}
+.call-flag-badge{font-size:8px;background:rgba(255,68,85,.15);color:#ff6070;border-radius:3px;padding:1px 5px;border:1px solid rgba(255,68,85,.3)}
+/* Apps list */
+.app-row{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+.app-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.app-name{font-size:10px;color:rgba(255,255,255,.75);font-weight:500}
+.app-pkg{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.app-flag{margin-left:auto;font-size:9px;color:var(--red);font-weight:700}
+/* Panel info below phone */
+.panel-info{padding:12px 16px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border2)}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border2)}
+.info-row:last-child{border-bottom:none}
+.info-lbl{font-size:10px;color:var(--muted)}
+.info-val{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.75)}
+
+/* ══ ZAAK OVERZICHT ══ */
+.zaak-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.zaak-card{background:rgba(9,13,19,.95);border:1px solid var(--border);border-radius:12px;padding:18px;cursor:pointer;transition:all .2s;animation:fadeUp .35s ease both}
+.zaak-card:hover{background:rgba(255,255,255,.04);transform:translateY(-2px)}
+.zaak-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.zaak-id{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);margin-bottom:3px}
+.zaak-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff}
+.zaak-desc{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5}
+.zaak-stats{display:flex;gap:10px;margin-top:14px}
+.zaak-stat{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--border2);border-radius:7px;padding:8px 12px;text-align:center}
+.zaak-stat .zv{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700}
+.zaak-stat .zl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.suspect-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.suspect-chip{font-size:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:3px 10px;color:rgba(255,255,255,.6)}
+
+/* ══ HEATMAP PAGE ══ */
+.heatmap-wrap{background:rgba(9,13,19,.95);border:1px solid var(--border);border-radius:12px;padding:20px}
+.heatmap-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-bottom:8px}
+.heatmap-cell{height:32px;border-radius:4px;background:rgba(255,255,255,.04);transition:all .3s;cursor:pointer;position:relative}
+.heatmap-cell:hover::after{content:attr(data-tip);position:absolute;bottom:38px;left:50%;transform:translateX(-50%);background:#0d1219;border:1px solid var(--border);border-radius:5px;padding:4px 8px;font-size:10px;color:#fff;white-space:nowrap;z-index:10;pointer-events:none}
+.heatmap-labels{display:grid;grid-template-columns:repeat(24,1fr);gap:3px}
+.heatmap-labels span{font-size:8px;color:var(--muted);text-align:center;font-family:'JetBrains Mono',monospace}
+.activity-bars{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.act-row{display:flex;align-items:center;gap:12px}
+.act-label{font-size:11px;color:var(--muted);width:100px;flex-shrink:0}
+.act-bar-wrap{flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+.act-bar{height:100%;border-radius:4px;transition:width 1s ease}
+.act-val{font-family:'JetBrains Mono',monospace;font-size:11px;width:60px;text-align:right;flex-shrink:0}
+
+/* ══ VERBANDEN PAGE ══ */
+.verbanden-wrap{background:rgba(9,13,19,.95);border:1px solid var(--border);border-radius:12px;padding:20px;min-height:400px;position:relative}
+.node-container{position:relative;width:100%;height:480px}
+.v-node{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:all .2s;animation:fadeIn .5s ease both}
+.v-node:hover .node-circle{transform:scale(1.15)}
+.node-circle{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid;transition:transform .2s;position:relative}
+.node-circle::after{content:'';position:absolute;inset:-4px;border-radius:50%;border:1px solid;opacity:.2}
+.node-label{font-size:9px;color:rgba(255,255,255,.7);margin-top:5px;text-align:center;font-weight:600;max-width:70px}
+.node-sub{font-size:8px;color:var(--muted);text-align:center}
+svg.edge-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+.v-legend{display:flex;gap:16px;margin-top:16px}
+.v-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.v-legend-dot{width:10px;height:10px;border-radius:50%}
+
+/* ══ NOTIFICATIONS ══ */
+#notif-container{position:fixed;top:calc(var(--topbar-h) + 52px);right:16px;z-index:400;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:320px}
+.notif{background:rgba(9,13,19,.97);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;gap:10px;align-items:flex-start;box-shadow:0 4px 20px rgba(0,0,0,.6);animation:notifSlide .3s ease;pointer-events:all;transition:all .3s}
+.notif.leaving{animation:notifOut .3s ease forwards}
+.notif-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.notif-title{font-size:12px;font-weight:600;color:#fff;margin-bottom:2px}
+.notif-body{font-size:11px;color:var(--muted);line-height:1.4}
+.notif-time{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--faint);margin-top:4px}
+.notif-close{margin-left:auto;color:var(--muted);cursor:pointer;font-size:13px;flex-shrink:0;padding:0 0 0 8px}
+
+/* ══ MODAL ══ */
+#modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+#modal-bg.open{display:flex;animation:fadeIn .2s ease}
+#modal{width:min(820px,94vw);max-height:88vh;overflow-y:auto;background:#0b1016;border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.9);animation:slideUp .25s ease}
+.modal-header{padding:24px 28px 18px;border-bottom:1px solid var(--border2)}
+.modal-body{padding:22px 28px;display:flex;flex-direction:column;gap:16px}
+.modal-footer{padding:16px 28px;border-top:1px solid var(--border2);display:flex;justify-content:flex-end;gap:8px}
+.btn-primary{background:rgba(240,165,0,.12);border:1px solid rgba(240,165,0,.3);color:var(--amber);border-radius:7px;padding:8px 20px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;font-weight:600;transition:all .15s}
+.btn-primary:hover{background:rgba(240,165,0,.2)}
+.btn-ghost{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 20px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .15s}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.meta-cell{background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+.meta-cell .ml{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+.meta-cell .mv{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,.8)}
+.findings-bars{display:flex;flex-direction:column;gap:9px}
+.fb-row{display:flex;align-items:center;gap:12px}
+.fb-icon{font-size:16px;width:26px;text-align:center}
+.fb-lbl{font-size:12px;color:var(--muted);width:90px}
+.fb-track{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.fb-fill{height:100%;border-radius:3px;transition:width .8s ease}
+.fb-val{font-family:'JetBrains Mono',monospace;font-size:11px;width:80px;text-align:right}
+
+@media(max-width:900px){
+  #layout{grid-template-columns:1fr!important}
+  #sidebar,#phone-panel{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ BOOT ══ -->
+<div id="boot-screen">
+  <div style="margin-bottom:16px;display:flex;gap:3px;align-items:flex-end">
+    <span style="display:block;width:4px;height:9px;background:var(--amber);border-radius:2px"></span>
+    <span style="display:block;width:4px;height:15px;background:var(--amber);border-radius:2px"></span>
+    <span style="display:block;width:4px;height:11px;background:var(--amber);border-radius:2px"></span>
+    <span style="display:block;width:4px;height:18px;background:var(--amber);border-radius:2px"></span>
+    <span style="display:block;width:4px;height:7px;background:var(--amber);border-radius:2px"></span>
+  </div>
+  <div id="boot-lines"></div>
+  <div class="boot-bar-wrap"><div class="boot-bar-fill" id="boot-bar"></div></div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="login-screen" class="hidden">
+  <div class="login-left">
+    <div class="login-grid-bg"></div><div class="login-scan"></div>
+    <div class="login-corner tl"></div><div class="login-corner tr"></div>
+    <div class="login-corner bl"></div><div class="login-corner br"></div>
+    <div class="login-brand">
+      <div class="login-brand-logo">
+        <div class="login-bars">
+          <span style="height:9px"></span><span style="height:15px;animation-delay:.2s"></span>
+          <span style="height:11px;animation-delay:.1s"></span><span style="height:18px;animation-delay:.3s"></span>
+          <span style="height:7px;animation-delay:.15s"></span>
+        </div>
+        <div>
+          <div class="login-brand-name">DFL <span style="color:var(--amber)">FORENSIC</span> OPS</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.22);letter-spacing:.14em;text-transform:uppercase;margin-top:1px">Landelijke Eenheid · Den Haag</div>
+        </div>
+      </div>
+      <div class="login-tagline">Digitaal<br>Forensisch<br><span>Lab</span></div>
+      <div class="login-desc">Beveiligd toegangssysteem voor gecertificeerde forensisch analisten. Alle sessies worden gelogd conform artikel 8 Wiv 2017.</div>
+    </div>
+    <div class="login-stats">
+      <div class="login-stat" style="border-top:2px solid var(--green)"><div class="sv" style="color:var(--green)">20</div><div class="sl">Apparaten</div></div>
+      <div class="login-stat" style="border-top:2px solid var(--amber)"><div class="sv" style="color:var(--amber)">341</div><div class="sl">Gemarkeerd</div></div>
+      <div class="login-stat" style="border-top:2px solid var(--purple)"><div class="sv" style="color:var(--purple)">6.2M</div><div class="sl">Datapunten</div></div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-form-wrap">
+      <div class="login-step active" id="step-1">
+        <div class="login-form-title">Inloggen</div>
+        <div class="login-form-sub">Gebruik uw DFL-dienstaccount</div>
+        <div class="login-error" id="login-error"><span>⚠</span><span id="login-error-msg">Ongeldige gegevens</span></div>
+        <div class="login-field">
+          <label class="login-label">Gebruikersnaam</label>
+          <div class="login-input-wrap">
+            <span class="login-icon">👤</span>
+            <input class="login-input" id="inp-user" type="text" placeholder="bijv. r.vandenberg" onkeydown="if(event.key==='Enter')doLogin()">
+          </div>
+        </div>
+        <div class="login-field">
+          <label class="login-label">Wachtwoord</label>
+          <div class="login-input-wrap">
+            <span class="login-icon">🔒</span>
+            <input class="login-input" id="inp-pass" type="password" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+            <span class="login-eye" onclick="toggleEye()">👁</span>
+          </div>
+        </div>
+        <button class="login-btn" id="login-btn" onclick="doLogin()">Inloggen →</button>
+        <div class="login-hint"><strong>Demo:</strong> r.vandenberg / forensic2026 &nbsp;·&nbsp; admin / dfl-admin</div>
+      </div>
+      <div class="login-step" id="step-2">
+        <div style="font-size:36px;margin-bottom:16px;text-align:center">🔐</div>
+        <div class="login-form-title">2-Factor Authenticatie</div>
+        <div class="login-form-sub">Voer de 6-cijferige code in van uw authenticator</div>
+        <div class="login-error" id="twofa-error"><span>⚠</span><span>Ongeldige code</span></div>
+        <div style="margin:28px 0 24px"><div class="twofa-wrap" id="twofa-inputs"></div></div>
+        <button class="login-btn" id="twofa-btn" onclick="doTwoFA()">Verifiëren →</button>
+        <div style="text-align:center;margin-top:14px"><span onclick="goBack()" style="font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline">← Terug</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NOTIFICATIONS ══ -->
+<div id="notif-container"></div>
+
+<!-- ══ TOPBAR ══ -->
+<header id="topbar" style="display:none">
+  <div class="brand">
+    <div class="brand-bars">
+      <span style="height:9px"></span><span style="height:15px;animation-delay:.2s"></span>
+      <span style="height:11px;animation-delay:.1s"></span><span style="height:18px;animation-delay:.3s"></span>
+      <span style="height:7px;animation-delay:.15s"></span>
+    </div>
+    <div><div class="brand-title">DFL <span style="color:var(--amber)">FORENSIC</span> OPS</div>
+    <div class="brand-sub">Digitaal Forensisch Lab · Landelijke Eenheid · Den Haag</div></div>
+  </div>
+  <div id="ticker-wrap"><div id="ticker-inner"></div></div>
+  <div class="topbar-right">
+    <div id="notif-bell" onclick="toggleNotifPanel()" style="cursor:pointer;position:relative;padding:4px 8px;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,.03);font-size:16px;transition:all .15s" onmouseover="this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
+      🔔<span id="notif-count" style="position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:8px;font-weight:700;border-radius:10px;padding:1px 4px;display:none">0</span>
+    </div>
+    <div id="clock">00:00:00</div>
+    <div class="badge-live"><span class="dot-wrap"><span class="dot-ring" style="background:var(--green)"></span><span class="dot-core" style="background:var(--green)"></span></span>LIVE</div>
+    <div id="user-badge" style="display:none"></div>
+  </div>
+</header>
+
+<!-- ══ NAV TABS ══ -->
+<nav id="nav-tabs" style="display:none">
+  <button class="nav-tab active" onclick="setPage('devices')" id="tab-devices">📱 Apparaten <span class="tab-badge" id="tab-count">20</span></button>
+  <button class="nav-tab" onclick="setPage('zaak')" id="tab-zaak">📁 Zaakdossiers <span class="tab-badge">8</span></button>
+  <button class="nav-tab" onclick="setPage('heatmap')" id="tab-heatmap">📊 Activiteit</button>
+  <button class="nav-tab" onclick="setPage('verbanden')" id="tab-verbanden">🕸 Zaakverbanden</button>
+</nav>
+
+<!-- ══ MAIN LAYOUT ══ -->
+<div id="layout" style="display:none">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-head">
+      <h2>Beslaggenomen apparaten</h2>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="search" type="text" placeholder="Zoek op model, zaak, verdachte…" oninput="filterDevices()">
+      </div>
+    </div>
+    <div class="filter-row" id="sidebar-filters"></div>
+    <div id="device-list"></div>
+  </aside>
+
+  <!-- Main pages -->
+  <main id="main">
+
+    <!-- Page: Apparaten -->
+    <div id="page-devices" class="active">
+      <div id="stats-bar"></div>
+      <div style="padding:16px 20px 0;display:flex;flex-direction:column;gap:12px">
+        <div id="toolbar">
+          <div class="tb-filters" id="tb-filters"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="vt-btn active" id="btn-grid" onclick="setView('grid')" title="Raster">⊞</button>
+            <button class="vt-btn" id="btn-list" onclick="setView('list')" title="Lijst">☰</button>
+            <span style="font-size:11px;color:var(--faint);white-space:nowrap" id="count-lbl">0</span>
+          </div>
+        </div>
+        <div id="card-grid"></div>
+        <div id="list-view" class="hidden">
+          <div class="list-header"><span>ID</span><span>Apparaat</span><span>Status</span><span>Zaak</span><span>Verdachte</span><span>Voortgang</span><span>Prio</span></div>
+          <div id="list-rows"></div>
+        </div>
+        <div id="empty-state" class="empty" style="display:none"><div class="e-icon">📭</div><p>Geen apparaten gevonden</p></div>
+      </div>
+    </div>
+
+    <!-- Page: Zaakdossiers -->
+    <div id="page-zaak">
+      <div style="padding:20px 20px 0">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">Zaakdossiers</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Overzicht van alle actieve forensische onderzoeken</div>
+        <div class="zaak-grid" id="zaak-grid"></div>
+      </div>
+    </div>
+
+    <!-- Page: Heatmap -->
+    <div id="page-heatmap">
+      <div style="padding:20px 20px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800">Activiteitsanalyse</div>
+        <div class="heatmap-wrap" id="heatmap-wrap"></div>
+        <div class="heatmap-wrap" id="activity-bars-wrap"></div>
+      </div>
+    </div>
+
+    <!-- Page: Verbanden -->
+    <div id="page-verbanden">
+      <div style="padding:20px 20px 0">
+        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">Zaakverbanden</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:20px">Visuele verbindingen tussen verdachten, apparaten en zaken</div>
+        <div class="verbanden-wrap" id="verbanden-wrap"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Phone panel -->
+  <div id="phone-panel" class="closed">
+    <div class="panel-head">
+      <h3 id="panel-title">Telefoonviewer</h3>
+      <div style="display:flex;gap:6px">
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+    </div>
+    <div class="frame-controls">
+      <label>Frame</label>
+      <input type="range" id="frame-slider" min="200" max="340" value="270" oninput="resizeFrame(this.value)">
+      <span class="frame-size-label" id="frame-label">270</span>
+    </div>
+    <div class="phone-scroll" id="phone-scroll">
+      <div class="phone-frame" id="phone-frame" style="width:270px">
+        <div class="phone-btn-r"></div><div class="phone-btn-l1"></div><div class="phone-btn-l2"></div>
+        <div class="phone-notch"><div class="notch-cam"></div><div class="notch-speaker"></div><div class="notch-cam"></div></div>
+        <div class="phone-screen" id="phone-screen" style="height:480px">
+          <div class="forensic-overlay"></div>
+          <div class="forensic-stamp" id="forensic-stamp">DFL FORENSIC</div>
+          <div id="phone-content"></div>
+        </div>
+        <div class="phone-home-bar"></div>
+      </div>
+      <div class="panel-info" id="panel-info"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ══ -->
+<div id="modal-bg" onclick="closeModal()">
+  <div id="modal" onclick="event.stopPropagation()">
+    <div class="modal-header" id="modal-header"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal()">Sluiten</button>
+      <button class="btn-primary" id="modal-view-btn">📱 Bekijk in telefoonframe</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════
+   DATA
+══════════════════════════════════ */
+const STATUS_CFG = {
+  completed: {label:'Voltooid',  color:'#00e887',bg:'rgba(0,232,135,.09)',border:'rgba(0,232,135,.22)'},
+  extracting:{label:'Extractie', color:'#f0a500',bg:'rgba(240,165,0,.09)',border:'rgba(240,165,0,.28)'},
+  analyzing: {label:'Analyse',   color:'#b87fff',bg:'rgba(184,127,255,.09)',border:'rgba(184,127,255,.28)'},
+  queued:    {label:'Wachtrij',  color:'#5a8fff',bg:'rgba(90,143,255,.09)',border:'rgba(90,143,255,.22)'},
+  error:     {label:'Fout',      color:'#ff4455',bg:'rgba(255,68,85,.09)',border:'rgba(255,68,85,.22)'},
+};
+const PRIO_COLOR={KRITIEK:'#ff4455',HOOG:'#f0a500',MIDDEL:'#5a8fff',LAAG:'rgba(255,255,255,.3)'};
+const PRIO_BG={KRITIEK:'rgba(255,68,85,.12)',HOOG:'rgba(240,165,0,.1)',MIDDEL:'rgba(90,143,255,.09)',LAAG:'rgba(255,255,255,.04)'};
+
+const USERS = {
+  'r.vandenberg':{pass:'forensic2026',name:'R. van den Berg',role:'Forensisch Analist',code:'482910'},
+  'm.devries':   {pass:'cellebrite99', name:'M. de Vries',    role:'Forensisch Analist',code:'174523'},
+  'admin':       {pass:'dfl-admin',   name:'Beheerder DFL',  role:'Systeembeheer',      code:'000000'},
+};
+
+const ZAKEN = [
+  {id:'ZK-0882',title:'Operatie Havenvuur',desc:'Georganiseerde smokkelroute via Rotterdamse haven. Meerdere verdachten actief in crypto-betalingen.',status:'actief',devices:3,flagged:61,data:'192K',priority:'KRITIEK',color:'#ff4455',suspects:['O. Karimi','F. Bekkali','J. Pietersen']},
+  {id:'ZK-0875',title:'Operatie Nachtschakel',desc:'Verdachte transacties via darknet. Mogelijke verbinding met internationale drugshandel.',status:'actief',devices:2,flagged:22,data:'87K',priority:'HOOG',color:'#f0a500',suspects:['T. Nguyen','A. Brunner']},
+  {id:'ZK-0868',title:'Operatie Marktplaats',desc:'Illegale wapenhandel online. Verdachte communiceert via versleutelde kanalen.',status:'actief',devices:2,flagged:83,data:'312K',priority:'KRITIEK',color:'#ff4455',suspects:['M. Boateng','C. van Dijk']},
+  {id:'ZK-0863',title:'Operatie Schaduwpad',desc:'Fraude met cryptovaluta. Chipschade belemmert volledig onderzoek.',status:'actief',devices:1,flagged:0,data:'—',priority:'MIDDEL',color:'#5a8fff',suspects:['A. Sahin']},
+  {id:'ZK-0871',title:'Operatie Dageraad',desc:'Oplichting via digitale identiteitsfraude. Phishingcampagne actief.',status:'afgesloten',devices:2,flagged:39,data:'128K',priority:'LAAG',color:'rgba(255,255,255,.3)',suspects:['D. Wolff','W. Hendriks']},
+  {id:'ZK-0855',title:'Operatie Stormwacht',desc:'Verduistering en witwassen. iCloud-backup analyse loopt parallel.',status:'actief',devices:1,flagged:9,data:'44K',priority:'MIDDEL',color:'#5a8fff',suspects:['J. Pietersen']},
+  {id:'ZK-0850',title:'Operatie Bronwater',desc:'Chantage via gestolen intieme beelden. Bewijs veiliggesteld.',status:'actief',devices:2,flagged:27,data:'78K',priority:'HOOG',color:'#f0a500',suspects:['B. Ferreira','G. Meijer']},
+  {id:'ZK-0832',title:'Operatie Dubbele Sleutel',desc:'Internationale drugssmokkel. Coördinatie via versleutelde messaging.',status:'actief',devices:2,flagged:46,data:'155K',priority:'HOOG',color:'#f0a500',suspects:['E. Okonkwo','P. Lindqvist']},
+];
+
+const DEVICES = [
+  {id:'DFE-2026-0441',model:'Samsung Galaxy S23',imei:'352184110237845',seized:'08-03 14:22',caseRef:'ZK-0882',suspect:'O. Karimi',officer:'R. van den Berg',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 14',storage:{used:47.2,total:128},findings:{messages:14820,calls:892,photos:3241,locations:18440,deleted:2813,flagged:43},priority:'HOOG',
+    messages:[{from:'+31612345678',text:'Morgen 22:00 bij de loods. Zorg dat alles klaarstaat.',time:'07-03 21:44',flagged:true},{from:'+31698765432',text:'Ik heb het pakket. 3 kilo zoals afgesproken.',time:'07-03 22:01',flagged:true},{from:'+31687654321',text:'Geen contact meer via dit nummer.',time:'08-03 06:12',flagged:true},{from:'Moeder',text:'Wanneer kom je eten?',time:'08-03 09:30',flagged:false},{from:'+31611111111',text:'Transfer gedaan. Check je wallet.',time:'06-03 14:15',flagged:true},{from:'+31622222222',text:'Schip arriveert vrijdag. Container 4412.',time:'05-03 11:02',flagged:true}],
+    calls:[{num:'+31612345678',dir:'out',dur:'3:42',time:'07-03 21:30',flagged:true},{num:'+31698765432',dir:'in',dur:'1:18',time:'07-03 22:05',flagged:true},{num:'Moeder',dir:'in',dur:'8:04',time:'08-03 10:00',flagged:false},{num:'+31644000001',dir:'out',dur:'0:22',time:'06-03 09:11',flagged:true}],
+    photos:['🏭','📦','🗺','📸','🚢','🔑','💰','📍','🏠','🚗','📱','👤','🌆','📄','🔒'],
+    apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true},{name:'Monero Wallet',pkg:'com.m2049r.xmrwallet',icon:'💎',flagged:true},{name:'WhatsApp',pkg:'com.whatsapp',icon:'📱',flagged:false},{name:'Google Maps',pkg:'com.google.android.apps.maps',icon:'🗺',flagged:false},{name:'ProtonMail',pkg:'ch.protonmail.android',icon:'📧',flagged:true}],
+    heatData:[2,0,1,0,3,1,0,0,2,4,8,12,15,18,22,25,18,14,10,8,12,16,9,4]},
+  {id:'DFE-2026-0440',model:'Apple iPhone 15 Pro',imei:'359213106748921',seized:'07-03 09:15',caseRef:'ZK-0882',suspect:'F. Bekkali',officer:'M. de Vries',status:'extracting',extractionType:'Logical Extraction',tool:'Cellebrite UFED 7.62',pinStatus:'unknown',progress:63,os:'iOS 18.3',storage:{used:31.8,total:256},findings:{messages:6200,calls:441,photos:1102,locations:7820,deleted:0,flagged:18},priority:'HOOG',
+    messages:[{from:'+31677889900',text:'Alles geregeld voor vanavond?',time:'06-03 18:30',flagged:true},{from:'+31699887766',text:'Klaar. Parkeer bij de achterkant.',time:'06-03 19:01',flagged:true},{from:'Nadia',text:'Wanneer ben je thuis?',time:'06-03 20:00',flagged:false}],
+    calls:[{num:'+31677889900',dir:'out',dur:'5:11',time:'06-03 18:20',flagged:true},{num:'+31699887766',dir:'in',dur:'2:05',time:'06-03 19:10',flagged:true}],
+    photos:['📦','🏙','🚗','👤','📍','🔑','💻'],
+    apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true},{name:'Instagram',pkg:'com.instagram.android',icon:'📷',flagged:false},{name:'Binance',pkg:'com.binance.dev',icon:'💰',flagged:true}],
+    heatData:[0,0,0,0,1,0,0,2,5,9,14,18,22,20,17,15,19,21,14,8,6,10,7,2]},
+  {id:'DFE-2026-0439',model:'OnePlus 12',imei:'867120047293841',seized:'05-03 16:40',caseRef:'ZK-0875',suspect:'T. Nguyen',officer:'S. Janssen',status:'queued',extractionType:'In wachtrij',tool:'—',pinStatus:'locked',progress:0,os:'Android 15',storage:{used:null,total:512},findings:null,priority:'HOOG',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0437',model:'Xiaomi Redmi Note 13',imei:'864312097542316',seized:'03-03 11:05',caseRef:'ZK-0863',suspect:'A. Sahin',officer:'T. Bakker',status:'error',extractionType:'Chip-off vereist',tool:'MSAB XRY 10.4',pinStatus:'locked',progress:18,os:'Android 13',storage:{used:null,total:128},findings:null,priority:'MIDDEL',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0436',model:'Google Pixel 8',imei:'353741098432187',seized:'01-03 08:50',caseRef:'ZK-0871',suspect:'D. Wolff',officer:'L. Smit',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 15',storage:{used:22.4,total:128},findings:{messages:9130,calls:621,photos:2088,locations:12300,deleted:1540,flagged:27},priority:'LAAG',
+    messages:[{from:'+31655443322',text:'De locatie is gewijzigd. Nieuw adres volgt.',time:'28-02 20:11',flagged:true},{from:'+31622334455',text:'Begrepen. Verwijder dit bericht.',time:'28-02 20:14',flagged:true},{from:'Werk',text:'Je dienst begint om 9:00.',time:'01-03 07:00',flagged:false}],
+    calls:[{num:'+31655443322',dir:'out',dur:'4:22',time:'28-02 20:00',flagged:true}],
+    photos:['🏘','🚶','📍','💻','📄','🔐'],apps:[{name:'WhatsApp',pkg:'com.whatsapp',icon:'📱',flagged:false},{name:'Wickr Me',pkg:'com.wickr.crypto',icon:'🔒',flagged:true}],
+    heatData:[1,0,0,0,2,1,3,5,9,12,14,16,12,10,8,7,9,11,8,6,4,3,2,1]},
+  {id:'DFE-2026-0435',model:'Samsung Galaxy A54',imei:'357109842316548',seized:'28-02 15:30',caseRef:'ZK-0868',suspect:'M. Boateng',officer:'K. Visser',status:'analyzing',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 14',storage:{used:18.9,total:256},findings:{messages:22100,calls:1340,photos:4872,locations:31200,deleted:3981,flagged:71},priority:'KRITIEK',
+    messages:[{from:'+31644556677',text:'Rotterdam vrijdag. Jij regelt de ontvangst.',time:'25-02 11:30',flagged:true},{from:'+31633445566',text:'Hoeveel stuks dit keer?',time:'25-02 11:32',flagged:true},{from:'+31644556677',text:'Zoals altijd. Geen nummers via dit kanaal.',time:'25-02 11:35',flagged:true},{from:'Gym',text:'Je lidmaatschap verloopt binnenkort.',time:'26-02 09:00',flagged:false},{from:'+31655667788',text:'Doorsturen naar nieuwe wallet: 3FZb...',time:'24-02 23:11',flagged:true}],
+    calls:[{num:'+31644556677',dir:'out',dur:'8:12',time:'25-02 11:15',flagged:true},{num:'+31633445566',dir:'in',dur:'3:44',time:'25-02 11:40',flagged:true}],
+    photos:['💰','📦','🔫','📍','🚢','💻','🏭','🔑','📄','🚗','💎','🌐','📸','👤','🏙'],
+    apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Bitcoin Wallet',pkg:'de.schildbach.wallet',icon:'₿',flagged:true},{name:'Tor Browser',pkg:'org.torproject.torbrowser',icon:'🧅',flagged:true},{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true},{name:'MEGA',pkg:'mega.privacy.android.app',icon:'☁️',flagged:false}],
+    heatData:[3,1,2,4,6,3,1,2,4,8,14,20,28,32,26,22,18,24,20,14,10,12,8,5]},
+  {id:'DFE-2026-0434',model:'Apple iPhone 13',imei:'352984301276548',seized:'27-02 10:12',caseRef:'ZK-0855',suspect:'J. Pietersen',officer:'R. van den Berg',status:'extracting',extractionType:'Logical + iCloud',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:41,os:'iOS 17.6',storage:{used:29.1,total:128},findings:{messages:3100,calls:280,photos:890,locations:4300,deleted:0,flagged:9},priority:'MIDDEL',
+    messages:[{from:'+31611223344',text:'Morgen afrekenen. Vergeet het contract niet.',time:'26-02 20:00',flagged:true}],
+    calls:[],photos:['🏢','📋','💼','👤'],apps:[{name:'WhatsApp',pkg:'com.whatsapp',icon:'📱',flagged:false}],
+    heatData:[0,0,0,1,2,1,0,3,6,10,12,14,11,9,8,7,9,10,8,5,3,2,1,0]},
+  {id:'DFE-2026-0433',model:'Motorola Edge 40',imei:'860341247896321',seized:'26-02 17:55',caseRef:'ZK-0850',suspect:'B. Ferreira',officer:'M. de Vries',status:'completed',extractionType:'Full File System',tool:'MSAB XRY 10.4',pinStatus:'bypassed',progress:100,os:'Android 13',storage:{used:14.2,total:128},findings:{messages:7640,calls:512,photos:1230,locations:9800,deleted:1102,flagged:15},priority:'LAAG',
+    messages:[{from:'+31677001122',text:'Ben er bijna. Wacht bij de zijdeur.',time:'24-02 22:45',flagged:true},{from:'Karin',text:'Wanneer kom je thuis?',time:'25-02 00:01',flagged:false}],
+    calls:[{num:'+31677001122',dir:'in',dur:'1:30',time:'24-02 22:40',flagged:true}],
+    photos:['📍','🏠','🚗','👤','📷'],apps:[{name:'Snapchat',pkg:'com.snapchat.android',icon:'👻',flagged:false},{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true}],
+    heatData:[0,0,1,2,3,1,0,2,5,8,10,9,8,7,9,11,14,16,12,10,8,6,4,2]},
+  {id:'DFE-2026-0432',model:'Apple iPhone 14 Plus',imei:'351029841736548',seized:'25-02 09:40',caseRef:'ZK-0832',suspect:'P. Lindqvist',officer:'T. Bakker',status:'queued',extractionType:'In wachtrij',tool:'—',pinStatus:'unknown',progress:0,os:'iOS 17.4',storage:{used:null,total:256},findings:null,priority:'MIDDEL',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0431',model:'Samsung Galaxy S22',imei:'358741026394821',seized:'24-02 14:20',caseRef:'ZK-0868',suspect:'C. van Dijk',officer:'S. Janssen',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 14',storage:{used:38.6,total:256},findings:{messages:18400,calls:1102,photos:5540,locations:27300,deleted:4210,flagged:88},priority:'KRITIEK',
+    messages:[{from:'+31688990011',text:'Contract afgesloten. 15% voor jou.',time:'22-02 16:50',flagged:true},{from:'+31677889900',text:'Crypto adres: 1A2B3C4D5E6F...',time:'22-02 17:03',flagged:true},{from:'+31699001122',text:'Vergeet de telefoon te wisselen.',time:'23-02 08:00',flagged:true}],
+    calls:[{num:'+31688990011',dir:'out',dur:'6:30',time:'22-02 16:40',flagged:true},{num:'+31677889900',dir:'in',dur:'4:12',time:'22-02 17:10',flagged:true}],
+    photos:['💰','💎','📄','🔑','🏙','🚢','📦'],
+    apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Blockchain.com',pkg:'piuk.blockchain.android',icon:'⛓',flagged:true},{name:'ProtonVPN',pkg:'ch.protonvpn.android',icon:'🛡',flagged:false}],
+    heatData:[4,2,1,0,3,2,1,0,3,6,10,16,24,30,28,22,18,20,15,12,10,14,9,6]},
+  {id:'DFE-2026-0430',model:'Huawei P50 Pro',imei:'869021347283910',seized:'22-02 16:05',caseRef:'ZK-0875',suspect:'A. Brunner',officer:'L. Smit',status:'error',extractionType:'Chip-off – wacht RC',tool:'—',pinStatus:'locked',progress:0,os:'HarmonyOS 3.1',storage:{used:null,total:256},findings:null,priority:'HOOG',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0429',model:'Nokia G60',imei:'352013874961023',seized:'20-02 11:30',caseRef:'ZK-0871',suspect:'W. Hendriks',officer:'K. Visser',status:'analyzing',extractionType:'Full File System',tool:'MSAB XRY 10.4',pinStatus:'bypassed',progress:100,os:'Android 12',storage:{used:8.1,total:64},findings:{messages:4210,calls:389,photos:720,locations:6100,deleted:880,flagged:12},priority:'LAAG',
+    messages:[{from:'+31655667788',text:'Morgen dezelfde tijd, zelfde plek.',time:'18-02 21:00',flagged:true}],
+    calls:[{num:'+31655667788',dir:'out',dur:'2:15',time:'18-02 20:55',flagged:true}],
+    photos:['📍','🏘','🚶','📷'],apps:[{name:'WhatsApp',pkg:'com.whatsapp',icon:'📱',flagged:false}],
+    heatData:[0,0,1,1,2,1,0,2,4,7,9,11,10,8,7,6,8,10,7,5,3,2,1,0]},
+  {id:'DFE-2026-0428',model:'Oppo Reno 10',imei:'861234509876543',seized:'19-02 14:00',caseRef:'ZK-0832',suspect:'E. Okonkwo',officer:'T. Bakker',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 13',storage:{used:33.1,total:256},findings:{messages:11200,calls:780,photos:2900,locations:15600,deleted:2100,flagged:34},priority:'HOOG',
+    messages:[{from:'+31644332211',text:'Pakket ligt bij de locker. Code: 4821.',time:'17-02 14:30',flagged:true},{from:'+31633221100',text:'Ontvangen. Betaling onderweg.',time:'17-02 15:02',flagged:true}],
+    calls:[{num:'+31644332211',dir:'out',dur:'3:05',time:'17-02 14:20',flagged:true}],
+    photos:['📦','🔑','💰','📍','🏙'],apps:[{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true},{name:'Binance',pkg:'com.binance.dev',icon:'💰',flagged:true}],
+    heatData:[1,0,0,1,2,1,0,2,4,8,12,16,14,12,10,9,11,13,10,7,5,4,2,1]},
+  {id:'DFE-2026-0427',model:'Sony Xperia 5 V',imei:'353812047623981',seized:'18-02 09:20',caseRef:'ZK-0850',suspect:'G. Meijer',officer:'M. de Vries',status:'extracting',extractionType:'JTAG Extraction',tool:'MSAB XRY 10.4',pinStatus:'locked',progress:29,os:'Android 14',storage:{used:null,total:128},findings:null,priority:'MIDDEL',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0426',model:'Samsung Galaxy Z Fold 5',imei:'350987412638490',seized:'17-02 16:45',caseRef:'ZK-0875',suspect:'A. Brunner',officer:'S. Janssen',status:'queued',extractionType:'In wachtrij',tool:'—',pinStatus:'unknown',progress:0,os:'Android 14',storage:{used:null,total:512},findings:null,priority:'KRITIEK',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0425',model:'Apple iPhone 12 Mini',imei:'359812304756234',seized:'15-02 11:00',caseRef:'ZK-0868',suspect:'M. Boateng',officer:'K. Visser',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'iOS 16.7',storage:{used:19.4,total:64},findings:{messages:8900,calls:620,photos:1840,locations:11200,deleted:2100,flagged:29},priority:'KRITIEK',
+    messages:[{from:'+31644556677',text:'Tweede levering bevestigd. Zaterdag 03:00.',time:'14-02 22:10',flagged:true}],
+    calls:[{num:'+31644556677',dir:'out',dur:'4:55',time:'14-02 22:00',flagged:true}],
+    photos:['📦','🔑','📍','🚗','💰'],apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true}],
+    heatData:[2,1,1,3,5,2,1,0,2,5,8,12,16,20,18,14,10,12,9,7,5,6,4,2]},
+  {id:'DFE-2026-0424',model:'Motorola Moto G84',imei:'867231049823456',seized:'14-02 08:30',caseRef:'ZK-0882',suspect:'J. Pietersen',officer:'R. van den Berg',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 13',storage:{used:11.2,total:128},findings:{messages:5300,calls:340,photos:980,locations:7400,deleted:890,flagged:16},priority:'HOOG',
+    messages:[{from:'+31622334455',text:'Maak de rekening leeg vóór donderdag.',time:'12-02 19:44',flagged:true}],
+    calls:[{num:'+31622334455',dir:'out',dur:'2:18',time:'12-02 19:30',flagged:true}],
+    photos:['📄','💻','🏢','📱'],apps:[{name:'Telegram',pkg:'org.telegram.messenger',icon:'✈️',flagged:true},{name:'1Password',pkg:'com.agilebits.onepassword',icon:'🔑',flagged:false}],
+    heatData:[0,0,1,1,2,1,0,3,5,9,11,13,10,8,7,6,8,10,9,7,5,3,2,0]},
+  {id:'DFE-2026-0423',model:'Google Pixel 7a',imei:'351234567890123',seized:'12-02 14:55',caseRef:'ZK-0832',suspect:'E. Okonkwo',officer:'T. Bakker',status:'analyzing',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'Android 14',storage:{used:24.8,total:128},findings:{messages:13400,calls:890,photos:3100,locations:18900,deleted:2800,flagged:52},priority:'HOOG',
+    messages:[{from:'+31699123456',text:'Nieuwe afleverplek. Zie gedeelde pin.',time:'10-02 21:00',flagged:true},{from:'+31688234567',text:'Klaar voor ophaal. Rij door zij-ingang.',time:'10-02 21:15',flagged:true}],
+    calls:[{num:'+31699123456',dir:'out',dur:'5:30',time:'10-02 20:50',flagged:true}],
+    photos:['📍','🚗','📦','🏭','💰','🌃'],apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Wasabi Wallet',pkg:'com.wasabiwallet',icon:'🔐',flagged:true}],
+    heatData:[2,1,0,1,3,2,1,2,5,10,15,20,22,18,14,12,16,20,15,10,8,9,6,3]},
+  {id:'DFE-2026-0422',model:'Samsung Galaxy S21',imei:'358912346712390',seized:'10-02 09:05',caseRef:'ZK-0855',suspect:'J. Pietersen',officer:'R. van den Berg',status:'queued',extractionType:'In wachtrij',tool:'—',pinStatus:'unknown',progress:0,os:'Android 13',storage:{used:null,total:128},findings:null,priority:'MIDDEL',messages:[],calls:[],photos:[],apps:[],heatData:[]},
+  {id:'DFE-2026-0421',model:'Apple iPhone SE (3rd)',imei:'351234098723456',seized:'08-02 16:20',caseRef:'ZK-0868',suspect:'C. van Dijk',officer:'S. Janssen',status:'completed',extractionType:'Full File System',tool:'Cellebrite UFED 7.62',pinStatus:'bypassed',progress:100,os:'iOS 16.6',storage:{used:8.4,total:64},findings:{messages:4100,calls:290,photos:620,locations:5300,deleted:740,flagged:19},priority:'KRITIEK',
+    messages:[{from:'+31655443321',text:'Alles gaat via de nieuwe route. Wacht op sein.',time:'07-02 23:30',flagged:true}],
+    calls:[{num:'+31655443321',dir:'in',dur:'1:45',time:'07-02 23:20',flagged:true}],
+    photos:['🗺','🚢','📦','🔑'],apps:[{name:'Signal',pkg:'org.thoughtcrime.securesms',icon:'💬',flagged:true},{name:'Cash App',pkg:'com.squareup.cash',icon:'💵',flagged:true}],
+    heatData:[1,0,2,3,4,2,1,0,2,5,7,9,12,15,14,11,9,11,10,8,6,4,3,1]},
+];
+
+/* ══════════════════════════════════
+   STATE
+══════════════════════════════════ */
+let currentFilter='all', currentSearch='', currentView='grid', currentPage='devices';
+let selectedId=null, panelDevice=null, modalDevice=null, phoneAppTab='berichten';
+let liveProgress={}, loggedInUser=null, pendingUser=null;
+let notifCount=0, pendingNotifs=[];
+
+/* ══════════════════════════════════
+   BOOT
+══════════════════════════════════ */
+const BOOT_MSGS=['DFL Forensic Ops v5.1.0 — initialiseren…','Beveiligde TLS-verbinding opzetten…','Authenticatiemodule laden…','Bewijs-integriteitscontrole starten…','Verbinding met DFL-server: 10.0.0.42…','Versleutelingssleutels verificeren (AES-256)…','Toegangsmatrix ophalen (RBAC)…','Apparaat-inventaris laden — 20 apparaten gevonden…','Systeem gereed.'];
+let bootIdx=0;
+function runBoot(){
+  const container=document.getElementById('boot-lines'),bar=document.getElementById('boot-bar');
+  function addLine(){
+    if(bootIdx>=BOOT_MSGS.length){setTimeout(()=>{document.getElementById('boot-screen').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');},400);return;}
+    const line=document.createElement('div');line.className='boot-line';line.style.animationDelay='0s';line.textContent=BOOT_MSGS[bootIdx];
+    if(bootIdx===BOOT_MSGS.length-1)line.style.color='var(--green)';
+    container.appendChild(line);bootIdx++;
+    bar.style.width=Math.round((bootIdx/BOOT_MSGS.length)*100)+'%';
+    setTimeout(addLine,bootIdx<7?260:480);
+  }
+  setTimeout(addLine,500);
+}
+
+/* ══════════════════════════════════
+   LOGIN
+══════════════════════════════════ */
+function toggleEye(){const i=document.getElementById('inp-pass');i.type=i.type==='password'?'text':'password';}
+function doLogin(){
+  const user=document.getElementById('inp-user').value.trim().toLowerCase();
+  const pass=document.getElementById('inp-pass').value;
+  const err=document.getElementById('login-error');
+  const btn=document.getElementById('login-btn');
+  err.classList.remove('show');
+  if(!user||!pass){document.getElementById('login-error-msg').textContent='Vul alle velden in.';err.classList.add('show');return;}
+  btn.classList.add('loading');btn.textContent='Verificeren…';
+  setTimeout(()=>{
+    const u=USERS[user];
+    if(!u||u.pass!==pass){btn.classList.remove('loading');btn.textContent='Inloggen →';document.getElementById('login-error-msg').textContent='Ongeldige gebruikersnaam of wachtwoord.';err.classList.add('show');document.getElementById('inp-user').classList.add('error');document.getElementById('inp-pass').classList.add('error');return;}
+    pendingUser=user;btn.classList.remove('loading');btn.textContent='Inloggen →';showStep2(u);
+  },900);
+}
+function showStep2(u){
+  document.getElementById('step-1').classList.remove('active');
+  document.getElementById('step-2').classList.add('active');
+  document.getElementById('twofa-error').classList.remove('show');
+  const wrap=document.getElementById('twofa-inputs');wrap.innerHTML='';
+  for(let i=0;i<6;i++){
+    const inp=document.createElement('input');inp.className='twofa-digit';inp.type='text';inp.maxLength=1;inp.inputMode='numeric';inp.dataset.idx=i;
+    inp.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/g,'');if(e.target.value&&i<5)wrap.children[i+1].focus();if(i===5&&e.target.value)doTwoFA();});
+    inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!e.target.value&&i>0)wrap.children[i-1].focus();});
+    wrap.appendChild(inp);
+  }
+  setTimeout(()=>wrap.children[0].focus(),100);
+}
+function getTwoFACode(){return Array.from(document.querySelectorAll('.twofa-digit')).map(i=>i.value).join('');}
+function doTwoFA(){
+  const code=getTwoFACode();const err=document.getElementById('twofa-error');const btn=document.getElementById('twofa-btn');
+  err.classList.remove('show');
+  if(code.length<6){err.querySelector('span:last-child').textContent='Voer alle 6 cijfers in.';err.classList.add('show');return;}
+  btn.classList.add('loading');btn.textContent='Verifiëren…';
+  setTimeout(()=>{
+    const u=USERS[pendingUser];
+    if(code!==u.code&&code!=='000000'){btn.classList.remove('loading');btn.textContent='Verifiëren →';err.querySelector('span:last-child').textContent='Ongeldige code.';err.classList.add('show');document.querySelectorAll('.twofa-digit').forEach(d=>{d.value='';d.classList.add('error');});setTimeout(()=>document.querySelectorAll('.twofa-digit').forEach(d=>d.classList.remove('error')),600);document.querySelectorAll('.twofa-digit')[0].focus();return;}
+    loggedInUser=u;btn.textContent='✓ Toegang verleend';setTimeout(()=>launchDashboard(u),600);
+  },800);
+}
+function goBack(){document.getElementById('step-2').classList.remove('active');document.getElementById('step-1').classList.add('active');document.getElementById('twofa-error').classList.remove('show');pendingUser=null;}
+function launchDashboard(u){
+  const ls=document.getElementById('login-screen');
+  ls.style.transition='opacity .5s ease';ls.style.opacity='0';
+  setTimeout(()=>{
+    ls.classList.add('hidden');
+    document.getElementById('topbar').style.display='';
+    document.getElementById('nav-tabs').style.display='';
+    document.getElementById('layout').style.display='';
+    const ub=document.getElementById('user-badge');
+    ub.style.display='flex';
+    ub.style.cssText='display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:4px 14px;font-size:11px;color:rgba(255,255,255,.6)';
+    ub.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block"></span><span><strong style="color:#fff">${u.name}</strong> · ${u.role}</span><span onclick="doLogout()" style="margin-left:6px;cursor:pointer;opacity:.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5">✕</span>`;
+    buildTicker();buildFilters();buildStats();renderDevices();buildZaken();buildHeatmap();buildVerbanden();
+    setPage('devices');
+    // Schedule fake notifications
+    scheduleNotifications();
+  },500);
+}
+function doLogout(){
+  const layout=document.getElementById('layout');layout.style.transition='opacity .4s ease';layout.style.opacity='0';
+  setTimeout(()=>{
+    ['layout','topbar','nav-tabs'].forEach(id=>document.getElementById(id).style.display='none');
+    layout.style.opacity='';
+    document.getElementById('inp-user').value='';document.getElementById('inp-pass').value='';
+    document.getElementById('login-error').classList.remove('show');
+    document.getElementById('step-1').classList.add('active');document.getElementById('step-2').classList.remove('active');
+    loggedInUser=null;pendingUser=null;
+    const ls=document.getElementById('login-screen');ls.style.opacity='0';ls.classList.remove('hidden');ls.style.transition='opacity .4s ease';requestAnimationFrame(()=>ls.style.opacity='1');
+  },400);
+}
+
+/* ══════════════════════════════════
+   NOTIFICATIONS
+══════════════════════════════════ */
+const NOTIF_QUEUE=[
+  {icon:'✅',title:'Extractie voltooid',body:'DFE-2026-0440 (iPhone 15 Pro) — 63% → 100%',delay:12000,color:'var(--green)'},
+  {icon:'⚑',title:'Nieuw gemarkeerd item',body:'DFE-2026-0441: Verdacht bericht gevonden — "+31698765432"',delay:22000,color:'var(--amber)'},
+  {icon:'🔴',title:'Prioriteit verhoogd',body:'ZK-0875 (Operatie Nachtschakel) — MIDDEL → KRITIEK',delay:38000,color:'var(--red)'},
+  {icon:'🔄',title:'Extractie gestart',body:'DFE-2026-0439 (OnePlus 12) — JTAG gestart',delay:55000,color:'var(--blue)'},
+  {icon:'⚠️',title:'Integriteitsalarm',body:'DFE-2026-0437 — Chip-off goedkeuring RC ontvangen',delay:72000,color:'var(--amber)'},
+  {icon:'💎',title:'Crypto-wallet gevonden',body:'DFE-2026-0435 — Monero wallet geïdentificeerd (3FZb...)',delay:90000,color:'var(--purple)'},
+];
+function scheduleNotifications(){
+  NOTIF_QUEUE.forEach(n=>{
+    setTimeout(()=>showNotif(n),n.delay);
+  });
+}
+function showNotif(n){
+  const container=document.getElementById('notif-container');
+  const div=document.createElement('div');div.className='notif';
+  div.innerHTML=`<div class="notif-icon">${n.icon}</div>
+    <div style="flex:1">
+      <div class="notif-title">${n.title}</div>
+      <div class="notif-body">${n.body}</div>
+      <div class="notif-time">${new Date().toLocaleTimeString('nl-NL',{hour12:false})}</div>
+    </div>
+    <div class="notif-close" onclick="dismissNotif(this.parentElement)">✕</div>`;
+  div.style.borderLeftColor=n.color||'var(--border)';div.style.borderLeftWidth='3px';
+  container.appendChild(div);
+  notifCount++;
+  const cnt=document.getElementById('notif-count');cnt.textContent=notifCount;cnt.style.display='block';
+  setTimeout(()=>{if(div.parentElement)dismissNotif(div);},8000);
+}
+function dismissNotif(el){
+  el.classList.add('leaving');
+  setTimeout(()=>{if(el.parentElement)el.parentElement.removeChild(el);},300);
+}
+function toggleNotifPanel(){
+  notifCount=0;
+  const cnt=document.getElementById('notif-count');cnt.style.display='none';
+}
+
+/* ══════════════════════════════════
+   CLOCK + TICKER
+══════════════════════════════════ */
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('nl-NL',{hour12:false});}
+setInterval(updateClock,1000);
+
+function buildTicker(){
+  const t=document.getElementById('ticker-inner');
+  const items=[...DEVICES.filter(d=>d.status==='extracting').map(d=>`◈ ${d.id} [${d.model}] EXTRACTIE LOOPT`),
+    ...DEVICES.filter(d=>d.status==='error').map(d=>`⚠ ${d.id} AANDACHT VEREIST`),
+    `● ${DEVICES.length} APPARATEN ● ${DEVICES.reduce((a,d)=>a+(d.findings?.flagged||0),0)} GEMARKEERD`];
+  t.innerHTML=[...items,...items].map(i=>`<span>${i}</span>`).join('');
+}
+
+/* ══════════════════════════════════
+   STATS
+══════════════════════════════════ */
+function buildStats(){
+  const counts={total:DEVICES.length,done:0,analyzing:0,extract:0,queue:0,error:0,kritiek:0,flagged:0,data:0};
+  DEVICES.forEach(d=>{
+    if(d.status==='completed')counts.done++;if(d.status==='analyzing')counts.analyzing++;
+    if(d.status==='extracting')counts.extract++;if(d.status==='queued')counts.queue++;
+    if(d.status==='error')counts.error++;if(d.priority==='KRITIEK')counts.kritiek++;
+    counts.flagged+=d.findings?.flagged||0;
+    if(d.findings)counts.data+=d.findings.messages+d.findings.calls+d.findings.photos+d.findings.locations+d.findings.deleted;
+  });
+  const sb=document.getElementById('stats-bar');
+  sb.innerHTML=[
+    {label:'Apparaten',val:counts.total,color:'#fff'},
+    {label:'Voltooid',val:counts.done,color:'var(--green)'},
+    {label:'Analyse',val:counts.analyzing,color:'var(--purple)'},
+    {label:'Extractie',val:counts.extract,color:'var(--amber)'},
+    {label:'Wachtrij',val:counts.queue,color:'var(--blue)'},
+    {label:'Fout',val:counts.error,color:'var(--red)'},
+    {label:'Kritiek',val:counts.kritiek,color:'var(--red)'},
+    {label:'Gemarkeerd',val:counts.flagged,color:'var(--amber)'},
+    {label:'Datapunten',val:counts.data.toLocaleString('nl-NL'),color:'var(--purple)'},
+  ].map(s=>`<div class="stat-pill"><div class="val" style="color:${s.color}">${s.val}</div><div class="lbl">${s.label}</div></div>`).join('');
+}
+
+/* ══════════════════════════════════
+   FILTERS
+══════════════════════════════════ */
+const FILTERS=[
+  {key:'all',label:'Alle'},{key:'extracting',label:'Extractie',color:'#f0a500'},
+  {key:'analyzing',label:'Analyse',color:'#b87fff'},{key:'completed',label:'Voltooid',color:'#00e887'},
+  {key:'queued',label:'Wachtrij',color:'#5a8fff'},{key:'error',label:'Fout',color:'#ff4455'},
+  {key:'flagged',label:'⚑ Gemarkeerd',color:'#f0a500'},{key:'kritiek',label:'🔴 Kritiek',color:'#ff4455'},
+];
+function buildFilters(){
+  ['sidebar-filters','tb-filters'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.innerHTML=FILTERS.map(f=>`<button class="${id==='tb-filters'?'tb-btn':'f-btn'} ${currentFilter===f.key?'active':''}" onclick="setFilter('${f.key}')">${f.label}</button>`).join('');
+  });
+}
+function setFilter(k){currentFilter=k;buildFilters();renderDevices();}
+function filterDevices(){currentSearch=document.getElementById('search').value.toLowerCase();renderDevices();}
+function setView(v){
+  currentView=v;
+  document.getElementById('card-grid').className=v==='grid'?'':'hidden';
+  document.getElementById('list-view').className=v==='list'?'':'hidden';
+  document.getElementById('btn-grid').className=`vt-btn ${v==='grid'?'active':''}`;
+  document.getElementById('btn-list').className=`vt-btn ${v==='list'?'active':''}`;
+  renderDevices();
+}
+function setPage(p){
+  currentPage=p;
+  ['devices','zaak','heatmap','verbanden'].forEach(id=>{
+    document.getElementById('page-'+id).classList.toggle('active',id===p);
+    document.getElementById('tab-'+id)?.classList.toggle('active',id===p);
+  });
+}
+
+/* ══════════════════════════════════
+   LIVE PROGRESS
+══════════════════════════════════ */
+setInterval(()=>{
+  DEVICES.forEach(d=>{if(d.status==='extracting')liveProgress[d.id]=Math.min((liveProgress[d.id]??d.progress)+0.07,99);else liveProgress[d.id]=d.progress;});
+  document.querySelectorAll('.prog-fill[data-id]').forEach(el=>{const p=liveProgress[el.dataset.id]??0;el.style.width=p+'%';});
+  document.querySelectorAll('.prog-pct[data-id]').forEach(el=>{el.textContent=Math.floor(liveProgress[el.dataset.id]??0)+'%';});
+  document.querySelectorAll('.dev-mini-bar-fill[data-id]').forEach(el=>{el.style.width=(liveProgress[el.dataset.id]??0)+'%';});
+},500);
+
+/* ══════════════════════════════════
+   HELPERS
+══════════════════════════════════ */
+function dot(color,size=7){return `<span class="dot-wrap" style="width:${size}px;height:${size}px"><span class="dot-ring" style="background:${color}"></span><span class="dot-core" style="background:${color}"></span></span>`;}
+function statusChip(status,sc){return `<div class="status-chip" style="background:${sc.bg};border:1px solid ${sc.border};color:${sc.color}">${dot(sc.color,6)}${sc.label}</div>`;}
+function prioTag(p){return `<span class="prio-tag" style="color:${PRIO_COLOR[p]};background:${PRIO_BG[p]};border:1px solid ${PRIO_COLOR[p]}40">${p}</span>`;}
+function chipsHtml(d){
+  if(!d.findings)return `<span style="font-size:9px;color:rgba(255,255,255,.2);font-style:italic">${d.status==='error'?'⚠ Extractie mislukt':'Geen data'}</span>`;
+  const f=d.findings;
+  return `<span class="chip">✉ ${f.messages.toLocaleString('nl-NL')}</span><span class="chip">📍 ${f.locations.toLocaleString('nl-NL')}</span><span class="chip">🖼 ${f.photos.toLocaleString('nl-NL')}</span>${f.flagged>0?`<span class="chip flag">⚑ ${f.flagged}</span>`:''}`;
+}
+
+/* ══════════════════════════════════
+   RENDER DEVICES
+══════════════════════════════════ */
+function getFiltered(){
+  return DEVICES.filter(d=>{
+    const ms=currentFilter==='all'||d.status===currentFilter||(currentFilter==='flagged'&&d.findings?.flagged>0)||(currentFilter==='kritiek'&&d.priority==='KRITIEK');
+    const q=currentSearch===''||[d.model,d.suspect,d.caseRef,d.id,d.os].some(v=>v.toLowerCase().includes(currentSearch));
+    return ms&&q;
+  });
+}
+function renderDevices(){
+  const list=getFiltered();
+  document.getElementById('count-lbl').textContent=`${list.length} / ${DEVICES.length} apparaten`;
+  document.getElementById('empty-state').style.display=list.length===0?'block':'none';
+  document.getElementById('tab-count').textContent=DEVICES.length;
+
+  // Grid
+  if(currentView==='grid'){
+    document.getElementById('card-grid').innerHTML=list.map((d,i)=>{
+      const sc=STATUS_CFG[d.status];const p=liveProgress[d.id]??d.progress;
+      return `<div class="grid-card ${d.status} ${selectedId===d.id?'selected':''}" onclick="selectDevice('${d.id}')" style="animation-delay:${i*.04}s;border-color:${sc.border}">
+        <div class="top-accent" style="background:${sc.color}"></div>
+        <div class="scan-anim" style="background:linear-gradient(90deg,transparent,${sc.color},transparent)"></div>
+        <div class="gc-header">
+          <div>
+            <div class="gc-id">${d.id}</div>
+            <div class="gc-model">${d.model}</div>
+            <div class="gc-os">${d.os}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+            ${statusChip(d.status,sc)}${prioTag(d.priority)}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <span style="font-size:10px;color:var(--muted);background:rgba(255,255,255,.04);border-radius:4px;padding:2px 7px">${d.caseRef}</span>
+          <span style="font-size:10px;color:var(--muted)">${d.suspect}</span>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:9px;color:var(--muted)">
+            <span>${d.extractionType}</span><span style="color:${sc.color}" class="prog-pct" data-id="${d.id}">${p.toFixed(0)}%</span>
+          </div>
+          <div class="prog-track" style="height:5px"><div class="prog-fill" data-id="${d.id}" style="width:${p}%;background:${sc.color};box-shadow:0 0 6px ${sc.color}60"></div></div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${chipsHtml(d)}</div>
+        <div style="position:absolute;bottom:10px;right:12px;font-size:13px;opacity:.2">${d.pinStatus==='bypassed'?'🔓':d.pinStatus==='locked'?'🔒':'❓'}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // List
+  document.getElementById('list-rows').innerHTML=list.map((d,i)=>{
+    const sc=STATUS_CFG[d.status];const p=liveProgress[d.id]??d.progress;
+    return `<div class="list-row ${selectedId===d.id?'selected':''}" onclick="selectDevice('${d.id}')" style="animation-delay:${i*.03}s;border-color:${sc.border};border-left:3px solid ${sc.color}">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:${sc.color}">${d.id}</span>
+      <div><div style="font-weight:600;font-size:12px">${d.model}</div><div style="font-size:10px;color:var(--muted)">${d.os}</div></div>
+      <div style="display:flex;align-items:center;gap:5px">${dot(sc.color,6)}<span style="font-size:11px;color:${sc.color};font-weight:600">${sc.label}</span></div>
+      <span style="font-size:11px;color:var(--muted)">${d.caseRef}</span>
+      <span style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.suspect}</span>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;font-size:9px;color:var(--muted)"><span>${p.toFixed(0)}%</span>${d.findings?.flagged?`<span style="color:var(--amber);font-weight:700">⚑${d.findings.flagged}</span>`:''}</div>
+        <div class="prog-track" style="height:4px"><div class="prog-fill" data-id="${d.id}" style="width:${p}%;background:${sc.color}"></div></div>
+      </div>
+      <div style="text-align:center">${prioTag(d.priority)}</div>
+    </div>`;
+  }).join('');
+
+  // Sidebar
+  document.getElementById('device-list').innerHTML=DEVICES.map(d=>{
+    const sc=STATUS_CFG[d.status];const vis=list.includes(d);const p=liveProgress[d.id]??d.progress;
+    return `<div class="dev-card ${d.status} ${selectedId===d.id?'selected':''}" onclick="selectDevice('${d.id}')" style="${!vis?'display:none':''}">
+      <div class="scan-line"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+        <div><div class="dev-id">${d.id}</div><div class="dev-model">${d.model}</div><div class="dev-os">${d.os}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${statusChip(d.status,sc)}${prioTag(d.priority)}</div>
+      </div>
+      <div class="dev-mini-bar-track"><div class="dev-mini-bar-fill" data-id="${d.id}" style="width:${p}%;background:${sc.color}"></div></div>
+      <div style="display:flex;gap:3px;flex-wrap:wrap">${chipsHtml(d)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════
+   SELECT + MODAL
+══════════════════════════════════ */
+function selectDevice(id){selectedId=id;openModal(DEVICES.find(x=>x.id===id));renderDevices();}
+function openModal(d){
+  modalDevice=d;const sc=STATUS_CFG[d.status];const f=d.findings;
+  const total=f?f.messages+f.calls+f.photos+f.locations+f.deleted:0;
+  const p=liveProgress[d.id]??d.progress;
+  document.getElementById('modal-header').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${sc.color};margin-bottom:5px;display:flex;gap:10px">
+          <span>${d.id}</span><span style="opacity:.4">·</span><span>${d.caseRef}</span><span style="opacity:.4">·</span><span style="color:${PRIO_COLOR[d.priority]}">PRIORITEIT: ${d.priority}</span>
+        </div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#fff">${d.model}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,.4);margin-top:4px">${d.suspect} · ${d.os}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.2);margin-top:2px">IMEI: ${d.imei}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">${statusChip(d.status,sc)}${prioTag(d.priority)}</div>
+    </div>`;
+  document.getElementById('modal-body').innerHTML=`
+    <div style="background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><div style="font-size:11px;color:rgba(255,255,255,.5)">${d.extractionType}</div><div style="font-size:10px;color:rgba(255,255,255,.25)">Tool: ${d.tool} · ${d.storage.used??'?'} GB / ${d.storage.total} GB</div></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:${sc.color}">${p.toFixed(0)}%</div>
+      </div>
+      <div class="prog-track" style="height:8px"><div class="prog-fill" style="width:${p}%;background:linear-gradient(90deg,${sc.color}88,${sc.color});box-shadow:0 0 10px ${sc.color}60"></div></div>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-cell"><div class="ml">Opsporingsambtenaar</div><div class="mv">${d.officer}</div></div>
+      <div class="meta-cell"><div class="ml">Inbeslagname</div><div class="mv">${d.seized}</div></div>
+      <div class="meta-cell"><div class="ml">PIN-status</div><div class="mv">${d.pinStatus==='bypassed'?'✓ Ontgrendeld':d.pinStatus==='locked'?'🔒 Vergrendeld':'❓ Onbekend'}</div></div>
+    </div>
+    ${f?`
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em">Geëxtraheerde data</div>
+        <div style="font-size:12px;color:var(--amber);font-weight:700">⚑ ${f.flagged} items gemarkeerd</div>
+      </div>
+      <div class="findings-bars">
+        ${[{icon:'✉',label:'Berichten',val:f.messages,color:'#5a8fff'},{icon:'📞',label:'Oproepen',val:f.calls,color:'#00e887'},{icon:'🖼',label:"Foto's",val:f.photos,color:'#b87fff'},{icon:'📍',label:'Locaties',val:f.locations,color:'#f0a500'},{icon:'🗑',label:'Verwijderd',val:f.deleted,color:'#ff4455'}]
+          .map(c=>`<div class="fb-row"><span class="fb-icon">${c.icon}</span><span class="fb-lbl">${c.label}</span><div class="fb-track"><div class="fb-fill" style="width:${total>0?(c.val/total*100):0}%;background:${c.color};box-shadow:0 0 6px ${c.color}60"></div></div><span class="fb-val" style="color:${c.color}">${c.val.toLocaleString('nl-NL')}</span></div>`).join('')}
+      </div>
+      <div style="margin-top:14px;background:rgba(0,232,135,.04);border:1px solid rgba(0,232,135,.15);border-radius:8px;padding:11px 16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:rgba(255,255,255,.4)">Totaal datapunten</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--green)">${total.toLocaleString('nl-NL')}</span>
+      </div>
+    </div>`:`<div style="text-align:center;padding:32px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px"><div style="font-size:44px;margin-bottom:10px">${d.status==='error'?'⚠️':'⏳'}</div><div style="color:rgba(255,255,255,.4);font-size:13px">${d.status==='error'?'Extractie mislukt — chip-off vereist.':d.status==='queued'?'In wachtrij — nog geen data.':'Extractie loopt…'}</div></div>`}`;
+  document.getElementById('modal').style.borderTop=`3px solid ${sc.color}`;
+  document.getElementById('modal').style.boxShadow=`0 0 60px ${sc.color}18,0 24px 80px rgba(0,0,0,.9)`;
+  document.getElementById('modal-view-btn').onclick=()=>{closeModal();loadPhonePanel(d,0);};
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');}
+
+/* ══════════════════════════════════
+   PHONE PANEL
+══════════════════════════════════ */
+function loadPhonePanel(d,tabIdx=0){
+  panelDevice=d;phoneAppTab=tabIdx;
+  const sc=STATUS_CFG[d.status];
+  document.getElementById('layout').classList.add('phone-open');
+  document.getElementById('phone-panel').classList.remove('closed');
+  document.getElementById('panel-title').textContent=d.model;
+  document.getElementById('phone-frame').style.borderColor=sc.border;
+  document.getElementById('forensic-stamp').innerHTML=`DFL FORENSIC<br>${d.id}`;
+  const w=parseInt(document.getElementById('frame-slider').value);
+  document.getElementById('phone-screen').style.height=Math.round(w*1.78)+'px';
+  renderPhoneApp(d,tabIdx);
+  renderPanelInfo(d);
+}
+function renderPanelInfo(d){
+  const sc=STATUS_CFG[d.status];
+  document.getElementById('panel-info').innerHTML=`
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Apparaatinfo</div>
+    ${[['Status',`<span style="color:${sc.color};font-weight:600">${sc.label}</span>`],['IMEI',d.imei],['Tool',d.tool],['PIN',d.pinStatus==='bypassed'?'✓ Ontgrendeld':d.pinStatus==='locked'?'🔒':' ❓'],['Opslag',`${d.storage.used??'?'} / ${d.storage.total} GB`],['Inbeslagname',d.seized]]
+      .map(([l,v])=>`<div class="info-row"><span class="info-lbl">${l}</span><span class="info-val">${v}</span></div>`).join('')}`;
+}
+
+const PHONE_TABS=['berichten','oproepen','fotos','apps','kaart'];
+const PHONE_TAB_LABELS=['✉ Berichten','📞 Oproepen','🖼 Foto\'s','⚙ Apps','📍 Kaart'];
+
+function renderPhoneApp(d,tabIdx){
+  const w=parseInt(document.getElementById('frame-slider').value);
+  const screenH=Math.round(w*1.78);
+  const tab=PHONE_TABS[tabIdx]||'berichten';
+  const sc=STATUS_CFG[d.status];
+
+  let content='';
+  if(tab==='berichten'){
+    if(!d.findings){content=`<div style="padding:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)">${d.status==='queued'?'⏳ Wachtrij':d.status==='error'?'⚠ Extractie mislukt':'⏳ Bezig…'}</div>`;}
+    else{
+      const msgs=d.messages||[];
+      content=`<div class="phone-scrollable" style="height:${screenH-110}px">
+        ${msgs.length?msgs.map(m=>`<div class="phone-msg ${m.flagged?'flagged':''}">
+          <div class="phone-msg-from">${m.from}${m.flagged?'<span class="msg-flag">⚑ GEMARKEERD</span>':''}</div>
+          <div class="phone-msg-text">${m.text}</div>
+          <div class="phone-msg-time">${m.time}</div>
+        </div>`).join(''):`<div style="padding:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)">Geen berichten geladen</div>`}
+        <div style="padding:8px 12px;font-size:9px;color:rgba(255,255,255,.15);text-align:center">+ ${((d.findings?.messages||0)-msgs.length).toLocaleString('nl-NL')} meer berichten</div>
+      </div>`;
+    }
+  }else if(tab==='oproepen'){
+    if(!d.findings){content=`<div style="padding:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)">Geen data</div>`;}
+    else{
+      const calls=d.calls||[];
+      content=`<div class="phone-scrollable" style="height:${screenH-110}px">
+        ${calls.map(c=>`<div class="call-row">
+          <div class="call-icon">${c.dir==='out'?'📤':'📥'}</div>
+          <div style="flex:1"><div class="call-num">${c.num}</div><div class="call-dur">${c.dur} · ${c.dir==='out'?'Uitgaand':'Inkomend'}</div></div>
+          <div class="call-time">${c.time}</div>
+          ${c.flagged?'<span class="call-flag-badge">⚑</span>':''}
+        </div>`).join('')}
+        <div style="padding:8px;font-size:9px;color:rgba(255,255,255,.15);text-align:center">Totaal: ${(d.findings?.calls||0).toLocaleString('nl-NL')} oproepen</div>
+      </div>`;
+    }
+  }else if(tab==='fotos'){
+    if(!d.findings){content=`<div style="padding:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)">Geen data</div>`;}
+    else{
+      const photos=d.photos||[];
+      const colors=['rgba(90,143,255,.15)','rgba(240,165,0,.12)','rgba(184,127,255,.15)','rgba(0,232,135,.1)','rgba(255,68,85,.12)'];
+      content=`<div class="phone-scrollable" style="height:${screenH-110}px">
+        <div style="padding:8px 12px 4px;font-size:9px;color:var(--muted)">Totaal ${(d.findings?.photos||0).toLocaleString('nl-NL')} foto's geëxtraheerd</div>
+        <div class="photo-grid">
+          ${photos.map((p,i)=>`<div class="photo-cell ${i<3&&d.findings?.flagged?'flagged':''}" style="background:${colors[i%colors.length]}">
+            <div class="photo-cell-inner">${p}</div>
+          </div>`).join('')}
+        </div>
+        <div style="padding:6px 12px;font-size:9px;color:rgba(255,255,255,.2);text-align:center">⚑ ${Math.floor((d.findings?.photos||0)*0.008)} foto's gemarkeerd als forensisch bewijs</div>
+      </div>`;
+    }
+  }else if(tab==='apps'){
+    const apps=d.apps||[];
+    content=`<div class="phone-scrollable" style="height:${screenH-110}px">
+      <div style="padding:8px 12px 4px;font-size:9px;color:var(--muted)">${apps.length} geïnstalleerde apps gevonden</div>
+      ${apps.map(a=>`<div class="app-row">
+        <div class="app-icon" style="background:rgba(255,255,255,.06)">${a.icon}</div>
+        <div style="flex:1"><div class="app-name">${a.name}</div><div class="app-pkg">${a.pkg}</div></div>
+        ${a.flagged?'<span class="app-flag">⚑ VERDACHT</span>':''}
+      </div>`).join('')}
+      ${apps.length===0?'<div style="padding:20px;text-align:center;font-size:11px;color:rgba(255,255,255,.3)">Geen apps geladen</div>':''}
+    </div>`;
+  }else if(tab==='kaart'){
+    // Generate heatmap from device data or random
+    const heat=d.heatData&&d.heatData.length?d.heatData:Array.from({length:24},()=>Math.floor(Math.random()*20));
+    const max=Math.max(...heat,1);
+    const cities=[{name:'Amsterdam',x:'38%',y:'28%',hot:true},{name:'Rotterdam',x:'24%',y:'48%',hot:true},{name:'Utrecht',x:'38%',y:'40%',hot:false},{name:'Den Haag',x:'22%',y:'36%',hot:false},{name:'Eindhoven',x:'44%',y:'62%',hot:false}];
+    content=`<div class="phone-scrollable" style="height:${screenH-110}px">
+      <div style="position:relative;height:200px;background:rgba(0,0,0,.5);overflow:hidden;margin:4px">
+        <div style="position:absolute;inset:0;opacity:.04;background-image:linear-gradient(rgba(0,232,135,.5) 1px,transparent 1px),linear-gradient(90deg,rgba(0,232,135,.5) 1px,transparent 1px);background-size:20px 20px"></div>
+        ${cities.map((c,i)=>`
+          <div style="position:absolute;left:${c.x};top:${c.y};transform:translate(-50%,-50%);z-index:2;animation:mapDot .4s ease ${i*.1}s both">
+            <div style="width:${c.hot?14:8}px;height:${c.hot?14:8}px;border-radius:50%;background:${c.hot?'var(--red)':'var(--blue)'};box-shadow:0 0 ${c.hot?'12px':'6px'} ${c.hot?'rgba(255,68,85,.6)':'rgba(90,143,255,.4)'};position:relative">
+              ${c.hot?`<div style="position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(255,68,85,.3);animation:ripple 1.5s ease-out infinite"></div>`:''}
+            </div>
+            <div style="font-size:7px;color:rgba(255,255,255,.6);text-align:center;margin-top:3px;white-space:nowrap">${c.name}</div>
+          </div>`).join('')}
+        <div style="position:absolute;bottom:4px;left:8px;font-size:7px;color:rgba(255,255,255,.2);font-family:'JetBrains Mono',monospace">NEDERLAND · ${(d.findings?.locations||0).toLocaleString('nl-NL')} LOCATIES</div>
+      </div>
+      <div style="padding:8px 12px">
+        <div style="font-size:9px;color:var(--muted);margin-bottom:6px">ACTIVITEIT PER UUR (afgelopen 24u)</div>
+        <div style="display:flex;gap:1px;align-items:flex-end;height:40px">
+          ${heat.map((v,i)=>`<div style="flex:1;background:${v/max>0.7?'var(--red)':v/max>0.4?'var(--amber)':'var(--blue)'};opacity:${0.3+v/max*0.7};height:${Math.max(v/max*100,5)}%;border-radius:1px 1px 0 0;transition:height .5s ease ${i*.02}s" title="${i}:00 – ${v} locaties"></div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:2px;font-size:7px;color:rgba(255,255,255,.2);font-family:'JetBrains Mono',monospace">
+          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('phone-content').innerHTML=`
+    <div class="phone-statusbar">
+      <span>${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</span>
+      <span>📶 🔋</span>
+    </div>
+    <div style="padding:6px 12px 4px;border-bottom:1px solid rgba(255,255,255,.08)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:8px;color:${sc.color};margin-bottom:1px">${d.id}</div>
+      <div style="font-size:11px;font-weight:700;color:#fff">${d.model}</div>
+    </div>
+    <div class="phone-app-tabs">
+      ${PHONE_TAB_LABELS.map((label,i)=>`<div class="phone-app-tab ${i===tabIdx?'active':''}" onclick="switchPhoneTab(${i})">${label}</div>`).join('')}
+    </div>
+    ${content}`;
+}
+function switchPhoneTab(idx){if(panelDevice)renderPhoneApp(panelDevice,idx);}
+function closePanel(){document.getElementById('layout').classList.remove('phone-open');document.getElementById('phone-panel').classList.add('closed');selectedId=null;panelDevice=null;renderDevices();}
+function resizeFrame(val){
+  document.getElementById('frame-label').textContent=val;
+  document.getElementById('phone-frame').style.width=val+'px';
+  document.getElementById('phone-screen').style.height=Math.round(val*1.78)+'px';
+  if(panelDevice)renderPhoneApp(panelDevice,phoneAppTab);
+}
+
+/* ══════════════════════════════════
+   ZAAK DOSSIERS
+══════════════════════════════════ */
+function buildZaken(){
+  const STATUS_LABEL={actief:{label:'Actief',color:'var(--amber)'},afgesloten:{label:'Afgesloten',color:'var(--green)'}};
+  document.getElementById('zaak-grid').innerHTML=ZAKEN.map((z,i)=>`
+    <div class="zaak-card" style="animation-delay:${i*.05}s;border-top:2px solid ${z.color}">
+      <div class="zaak-header">
+        <div>
+          <div class="zaak-id">${z.id}</div>
+          <div class="zaak-title">${z.title}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-size:10px;color:${STATUS_LABEL[z.status].color};background:${STATUS_LABEL[z.status].color+'18'};border:1px solid ${STATUS_LABEL[z.status].color+'40'};border-radius:20px;padding:2px 10px;font-weight:600">${STATUS_LABEL[z.status].label}</span>
+          ${prioTag(z.priority)}
+        </div>
+      </div>
+      <div class="zaak-desc">${z.desc}</div>
+      <div class="zaak-stats">
+        <div class="zaak-stat"><div class="zv" style="color:var(--blue)">${z.devices}</div><div class="zl">Apparaten</div></div>
+        <div class="zaak-stat"><div class="zv" style="color:var(--amber)">${z.flagged}</div><div class="zl">Gemarkeerd</div></div>
+        <div class="zaak-stat"><div class="zv" style="color:var(--purple)">${z.data}</div><div class="zl">Datapunten</div></div>
+      </div>
+      <div class="suspect-chips">
+        ${z.suspects.map(s=>`<span class="suspect-chip">👤 ${s}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+/* ══════════════════════════════════
+   HEATMAP
+══════════════════════════════════ */
+function buildHeatmap(){
+  const hours=Array.from({length:24},(_,i)=>i);
+  const allHeat=Array(24).fill(0);
+  DEVICES.filter(d=>d.heatData&&d.heatData.length).forEach(d=>{d.heatData.forEach((v,i)=>allHeat[i]+=v);});
+  const maxH=Math.max(...allHeat,1);
+
+  document.getElementById('heatmap-wrap').innerHTML=`
+    <div class="heatmap-title"><span>Gecombineerde communicatie-activiteit per uur</span><span style="font-size:10px;color:var(--amber)">Alle apparaten · Afgelopen 7 dagen</span></div>
+    <div class="heatmap-grid">
+      ${allHeat.map((v,i)=>{
+        const int=v/maxH;const color=int>0.7?`rgba(255,68,85,${0.4+int*.5})`:int>0.4?`rgba(240,165,0,${0.3+int*.5})`:int>0.1?`rgba(90,143,255,${0.2+int*.5})`:'rgba(255,255,255,.04)';
+        return `<div class="heatmap-cell" style="background:${color}" data-tip="${i}:00 — ${v} interacties"></div>`;
+      }).join('')}
+    </div>
+    <div class="heatmap-labels">${hours.map(h=>`<span>${h}</span>`).join('')}</div>
+    <div style="display:flex;gap:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:12px;height:12px;border-radius:2px;background:rgba(255,68,85,.7)"></div>Hoog</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:12px;height:12px;border-radius:2px;background:rgba(240,165,0,.6)"></div>Middel</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted)"><div style="width:12px;height:12px;border-radius:2px;background:rgba(90,143,255,.4)"></div>Laag</div>
+    </div>`;
+
+  const devActivity=DEVICES.filter(d=>d.findings).sort((a,b)=>(b.findings.flagged||0)-(a.findings.flagged||0)).slice(0,8);
+  const maxFlagged=Math.max(...devActivity.map(d=>d.findings.flagged||0),1);
+  document.getElementById('activity-bars-wrap').innerHTML=`
+    <div class="heatmap-title"><span>Meest actieve apparaten (gemarkeerde items)</span></div>
+    <div class="activity-bars">
+      ${devActivity.map(d=>{
+        const sc=STATUS_CFG[d.status];const pct=(d.findings.flagged/maxFlagged)*100;
+        return `<div class="act-row">
+          <div class="act-label" style="font-size:10px">${d.model.split(' ').slice(-2).join(' ')}</div>
+          <div class="act-bar-wrap"><div class="act-bar" style="width:${pct}%;background:${sc.color};box-shadow:0 0 6px ${sc.color}60"></div></div>
+          <div class="act-val" style="color:${sc.color}">⚑ ${d.findings.flagged}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+/* ══════════════════════════════════
+   VERBANDEN (Network Graph)
+══════════════════════════════════ */
+function buildVerbanden(){
+  const nodes=[
+    {id:'ZK-0882',label:'Operatie\nHavenvuur',type:'zaak',color:'#ff4455',icon:'📁',x:'50%',y:'12%',delay:0},
+    {id:'ZK-0875',label:'Operatie\nNachtschakel',type:'zaak',color:'#f0a500',icon:'📁',x:'15%',y:'30%',delay:.1},
+    {id:'ZK-0868',label:'Operatie\nMarktplaats',type:'zaak',color:'#ff4455',icon:'📁',x:'82%',y:'25%',delay:.1},
+    {id:'ZK-0832',label:'Operatie\nDubbele Sleutel',type:'zaak',color:'#f0a500',icon:'📁',x:'20%',y:'72%',delay:.1},
+    {id:'S-KAR',label:'O. Karimi',type:'suspect',color:'#b87fff',icon:'👤',x:'35%',y:'32%',delay:.2},
+    {id:'S-BEK',label:'F. Bekkali',type:'suspect',color:'#b87fff',icon:'👤',x:'65%',y:'32%',delay:.2},
+    {id:'S-BOA',label:'M. Boateng',type:'suspect',color:'#b87fff',icon:'👤',x:'75%',y:'50%',delay:.2},
+    {id:'S-DYK',label:'C. van Dijk',type:'suspect',color:'#b87fff',icon:'👤',x:'88%',y:'60%',delay:.2},
+    {id:'S-OKO',label:'E. Okonkwo',type:'suspect',color:'#b87fff',icon:'👤',x:'25%',y:'55%',delay:.2},
+    {id:'S-NGU',label:'T. Nguyen',type:'suspect',color:'#5a8fff',icon:'👤',x:'10%',y:'50%',delay:.2},
+    {id:'S-PIE',label:'J. Pietersen',type:'suspect',color:'#b87fff',icon:'👤',x:'52%',y:'62%',delay:.25},
+    {id:'D-441',label:'Galaxy S23',type:'device',color:'#00e887',icon:'📱',x:'44%',y:'46%',delay:.3},
+    {id:'D-440',label:'iPhone 15 Pro',type:'device',color:'#f0a500',icon:'📱',x:'58%',y:'46%',delay:.3},
+    {id:'D-435',label:'Galaxy A54',type:'device',color:'#b87fff',icon:'📱',x:'80%',y:'70%',delay:.3},
+    {id:'D-431',label:'Galaxy S22',type:'device',color:'#00e887',icon:'📱',x:'68%',y:'72%',delay:.3},
+  ];
+  const edges=[
+    ['ZK-0882','S-KAR'],['ZK-0882','S-BEK'],['ZK-0882','S-PIE'],
+    ['ZK-0875','S-NGU'],['ZK-0868','S-BOA'],['ZK-0868','S-DYK'],
+    ['ZK-0832','S-OKO'],['S-KAR','D-441'],['S-BEK','D-440'],
+    ['S-BOA','D-435'],['S-DYK','D-431'],['S-PIE','D-441'],
+    ['S-KAR','S-BEK'],['S-BOA','S-DYK'],['S-OKO','S-PIE'],
+  ];
+
+  const svgW=document.getElementById('verbanden-wrap')?.offsetWidth||700;
+  const svgH=480;
+  function pct(str,max){return parseFloat(str)/100*max;}
+
+  document.getElementById('verbanden-wrap').innerHTML=`
+    <div style="position:relative;width:100%;height:${svgH}px">
+      <svg class="edge-layer" viewBox="0 0 ${svgW} ${svgH}">
+        ${edges.map(([a,b])=>{
+          const na=nodes.find(n=>n.id===a),nb=nodes.find(n=>n.id===b);if(!na||!nb)return '';
+          const x1=pct(na.x,svgW)+26,y1=pct(na.y,svgH)+26,x2=pct(nb.x,svgW)+26,y2=pct(nb.y,svgH)+26;
+          return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,.08)" stroke-width="1.5"/>`;
+        }).join('')}
+      </svg>
+      ${nodes.map(n=>`
+        <div class="v-node" style="left:${n.x};top:${n.y};animation-delay:${n.delay}s"
+             onclick="${n.type==='device'?`selectDevice('DFE-2026-0${n.id.replace('D-','')}');setPage('devices')`:''}"
+             title="${n.label.replace('\n',' ')}">
+          <div class="node-circle" style="background:${n.color}18;border-color:${n.color};width:${n.type==='zaak'?54:44}px;height:${n.type==='zaak'?54:44}px">
+            <span style="font-size:${n.type==='zaak'?20:16}px">${n.icon}</span>
+          </div>
+          <div class="node-label" style="color:${n.color}">${n.label.replace('\n','<br>')}</div>
+          ${n.type==='device'?'<div class="node-sub" style="color:var(--green);font-size:7px">→ bekijk</div>':''}
+        </div>`).join('')}
+    </div>
+    <div class="v-legend">
+      <div class="v-legend-item"><div class="v-legend-dot" style="background:#ff4455"></div>Zaak Kritiek</div>
+      <div class="v-legend-item"><div class="v-legend-dot" style="background:#f0a500"></div>Zaak Hoog</div>
+      <div class="v-legend-item"><div class="v-legend-dot" style="background:#b87fff"></div>Verdachte</div>
+      <div class="v-legend-item"><div class="v-legend-dot" style="background:#5a8fff"></div>Laag risico</div>
+      <div class="v-legend-item"><div class="v-legend-dot" style="background:#00e887"></div>Apparaat</div>
+    </div>`;
+}
+
+window.addEventListener('load', runBoot);
+</script>
+</body>
+</html>
